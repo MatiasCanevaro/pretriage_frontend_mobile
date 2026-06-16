@@ -35,21 +35,28 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
+import com.proyecto_final.triage.theme.TextPrimary
+import com.proyecto_final.triage.theme.TextSecondary
 
 class SignInScreen : Screen {
     @Composable
     override fun Content() {
-        SignInContent(  onForgotPassword = { },
-                        onSignIn = { },
-                        onSignUp = { }
+        val navigator = LocalNavigator.currentOrThrow
+        SignInContent(  onForgotPassword = { navigator.push(ForgotPasswordScreen()) },
+                        onSignIn = { navigator.replace(HomeScreen()) },
+                        onSignUp = { navigator.push(SignUpScreen()) }
                     )
     }
 }
@@ -70,41 +77,47 @@ fun SignInContent( onForgotPassword: () -> Unit,
                                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
         Spacer(modifier = Modifier.height(48.dp))
-        Image(painter = painterResource(Res.drawable.logo), contentDescription = "Logo", modifier = Modifier.size(120.dp))
+
+        Image(painter = painterResource(Res.drawable.logo), contentDescription = "Logo", modifier = Modifier.size(100.dp))
+
         Spacer(modifier = Modifier.height(12.dp))
+
         Text(text = "Iniciá sesión", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+
         Spacer(modifier = Modifier.height(64.dp))
+
         Text(text = "Correo electronico",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.align(Alignment.Start))
+
         Spacer(modifier = Modifier.height(8.dp))
+
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            placeholder = {
-                Text(
-                    text = "Ejemplo@ejemplo.com",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Email,
-                    contentDescription = "Email"
-                )
-            },
+            placeholder = { Text(   text = "Ejemplo@ejemplo.com",
+                                    style = MaterialTheme.typography.bodyMedium
+                            )},
+            leadingIcon = { Icon(   imageVector = Icons.Filled.Email,
+                                    contentDescription = "Email"
+                            )},
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(  unfocusedBorderColor = TextSecondary,
+                                                        unfocusedLeadingIconColor = TextSecondary,
+                                                        unfocusedPlaceholderColor = TextSecondary,
+                                                        unfocusedTextColor = TextPrimary,
+                                                        focusedTextColor = TextPrimary
+                                                    )
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Contraseña
-        Text(
-            text = "Contraseña",
+        
+        Text(text = "Contraseña",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.align(Alignment.Start)
@@ -131,7 +144,13 @@ fun SignInContent( onForgotPassword: () -> Unit,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(  unfocusedBorderColor = TextSecondary,
+                                                        unfocusedLeadingIconColor = TextSecondary,
+                                                        unfocusedTextColor = TextPrimary,
+                                                        focusedTextColor = TextPrimary,
+                                                        unfocusedTrailingIconColor = TextSecondary
+                                                    )
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -150,7 +169,7 @@ fun SignInContent( onForgotPassword: () -> Unit,
         // Recordarme
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.align(Alignment.Start)
+            modifier = Modifier.align(Alignment.Start).offset(x = (-12).dp)
         ) {
             Checkbox(
                 checked = rememberMe,
@@ -169,7 +188,7 @@ fun SignInContent( onForgotPassword: () -> Unit,
         // Botón
         Button(
             onClick = onSignIn,
-            shape = RoundedCornerShape(50),
+            shape = RoundedCornerShape(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
