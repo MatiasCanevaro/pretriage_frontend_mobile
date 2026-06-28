@@ -12,7 +12,8 @@ private val AppColorScheme = lightColorScheme(
     error           = Warning,
     onPrimary       = InputBackground,
     onBackground    = TextPrimary,
-    onSurface       = TextPrimary
+    onSurface       = TextPrimary,
+    onSurfaceVariant = TextSecondary
 )
 
 @Composable

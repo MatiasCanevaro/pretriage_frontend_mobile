@@ -18,10 +18,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import com.proyecto_final.triage.network.TokenStorage
 import com.proyecto_final.triage.theme.AppTheme
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.Res
+import triage.composeapp.generated.resources.ic_launcher
 import triage.composeapp.generated.resources.logo
 
 class SplashScreen : Screen {
@@ -31,7 +33,12 @@ class SplashScreen : Screen {
 
         LaunchedEffect(Unit) {
             delay(2500)
-            navigator?.replace(SignInScreen())
+            val token = TokenStorage.getToken()
+            if (token != null) {
+                navigator?.replace(HomeScreen())
+            } else {
+                navigator?.replace(SignInScreen())
+            }
         }
 
         SplashContent()
@@ -50,7 +57,7 @@ fun SplashContent() {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Image(
-                painter = painterResource(Res.drawable.logo),
+                painter = painterResource(Res.drawable.ic_launcher),
                 contentDescription = "Logo",
                 modifier = Modifier.size(240.dp)
             )

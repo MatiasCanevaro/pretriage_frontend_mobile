@@ -8,5 +8,6 @@ val TextSecondary   = Color(0xFF6B7280)
 val ButtonPrimary  = Color(0xFF69B3D5)
 val InputBackground = Color(0xFFFFFFFF)
 val Border          = Color(0xFFD1D5DB)
-val Warning         = Color(0xFFF39A3B)
+val Warning         = Color(0xFFF95254)
 val Success         = Color(0xFF72BF44)
+

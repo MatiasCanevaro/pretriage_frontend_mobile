@@ -10,9 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -31,129 +29,122 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.proyecto_final.triage.theme.TextPrimary
-import com.proyecto_final.triage.theme.TextSecondary
+import com.proyecto_final.triage.components.InputTextField
+import com.proyecto_final.triage.config.AppConfig
+import com.proyecto_final.triage.config.Environment
+import com.proyecto_final.triage.theme.Spacing
+import com.proyecto_final.triage.viewmodels.SignInState
+import com.proyecto_final.triage.viewmodels.SignInViewModel
+import kotlinx.coroutines.launch
 
 class SignInScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val viewModel = remember { SignInViewModel() }
+        val state by viewModel.state.collectAsState()
+
+        LaunchedEffect(state) {
+            if (state is SignInState.Success) {
+                navigator.replace(HomeScreen())
+            }
+        }
+
         SignInContent(  onForgotPassword = { navigator.push(ForgotPasswordScreen()) },
-                        onSignIn = { navigator.replace(HomeScreen()) },
-                        onSignUp = { navigator.push(SignUpScreen()) }
-                    )
+                        onSignUp = { navigator.push(SignUpScreen()) },
+                        onSignIn = { navigator.push(HomeScreen()) },
+                        viewModel = viewModel,
+                        state = state)
+    }
+}
+
+@Preview
+@Composable
+fun SignInPreview() {
+    AppTheme {
+        SignInContent(
+            onForgotPassword = { },
+            onSignUp = { },
+            onSignIn = { },
+            viewModel = SignInViewModel(),
+            state = SignInState.Idle
+        )
     }
 }
 
 @Composable
 fun SignInContent( onForgotPassword: () -> Unit,
+                   onSignUp: () -> Unit,
                    onSignIn: () -> Unit,
-                   onSignUp: () -> Unit
+                   viewModel: SignInViewModel,
+                   state: SignInState
 ) {
     // variables
+    var showErrors by remember { mutableStateOf(false) }
+    var authError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var rememberMe by remember { mutableStateOf(false) }
 
-    Column( modifier = Modifier.fillMaxSize()
-                                .background(MaterialTheme.colorScheme.background)
-                                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+    Column(
+        modifier = Modifier.fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(Spacing.xxl))
 
-        Image(painter = painterResource(Res.drawable.logo), contentDescription = "Logo", modifier = Modifier.size(100.dp))
+        Image(
+            painter = painterResource(Res.drawable.logo),
+            contentDescription = "Logo",
+            modifier = Modifier.size(100.dp)
+        )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Spacing.sm))
 
-        Text(text = "Iniciá sesión", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+        Text(
+            text = "Iniciá sesión",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
 
         Spacer(modifier = Modifier.height(64.dp))
 
-        Text(text = "Correo electronico",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.align(Alignment.Start))
+        // Correo Electronico
+        val isEmailValid = isValidEmail(email)
+        InputTextField( label = "Correo electrónico", value = email, onValueChange = { email = it }, leadingIcon = Icons.Filled.Email,
+            isError = showErrors && (email.isBlank() || !isEmailValid),
+            errorMessage = if (email.isBlank()) "Este campo es obligatorio" else "Ingresá un correo válido")
+        Spacer(modifier = Modifier.height(Spacing.md))
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            placeholder = { Text(   text = "Ejemplo@ejemplo.com",
-                                    style = MaterialTheme.typography.bodyMedium
-                            )},
-            leadingIcon = { Icon(   imageVector = Icons.Filled.Email,
-                                    contentDescription = "Email"
-                            )},
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(  unfocusedBorderColor = TextSecondary,
-                                                        unfocusedLeadingIconColor = TextSecondary,
-                                                        unfocusedPlaceholderColor = TextSecondary,
-                                                        unfocusedTextColor = TextPrimary,
-                                                        focusedTextColor = TextPrimary
-                                                    )
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(text = "Contraseña",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.align(Alignment.Start)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
+        // Contraseña
+        InputTextField(
+            label = "Contraseña",
             value = password,
             onValueChange = { password = it },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Lock,
-                    contentDescription = "Contraseña"
-                )
-            },
-            trailingIcon = {
-                Icon(
-                    imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                    contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña",
-                    modifier = Modifier.clickable { passwordVisible = !passwordVisible }
-                )
-            },
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(  unfocusedBorderColor = TextSecondary,
-                                                        unfocusedLeadingIconColor = TextSecondary,
-                                                        unfocusedTextColor = TextPrimary,
-                                                        focusedTextColor = TextPrimary,
-                                                        unfocusedTrailingIconColor = TextSecondary
-                                                    )
+            leadingIcon = Icons.Filled.Lock,
+            isPassword = true,
+            isError = showErrors && password.isBlank()
         )
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = "¿Olvidaste tu contraseña?",
@@ -187,16 +178,39 @@ fun SignInContent( onForgotPassword: () -> Unit,
 
         // Botón
         Button(
-            onClick = onSignIn,
+            onClick = {
+                showErrors = true
+                if(AppConfig.environment == Environment.DEV){
+                    onSignIn()
+                }
+                else if (email.isNotBlank() && password.isNotBlank()) {
+                    viewModel.login(email, password, rememberMe)
+                }
+            },
+            enabled = state !is SignInState.Loading,
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
+            modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
+            if (state is SignInState.Loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Text(
+                    text = "Iniciar sesión",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        }
+
+        if (state is SignInState.Error) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Iniciar sesión",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimary
+                text = state.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
             )
         }
 
@@ -223,16 +237,5 @@ fun SignInContent( onForgotPassword: () -> Unit,
             },
             modifier = Modifier.clickable { onSignUp() }
         )
-    }
-}
-
-@Preview
-@Composable
-fun SignInPreview() {
-    AppTheme {
-        SignInContent(  onForgotPassword = { },
-                        onSignIn = { },
-                        onSignUp = { }
-                    )
     }
 }

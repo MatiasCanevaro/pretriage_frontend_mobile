@@ -1,11 +1,25 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+
+val localProperties = Properties()
+
+val localPropertiesFile =
+    rootProject.file("local.properties")
+
+if (localPropertiesFile.exists()) {
+
+    localProperties.load(
+        localPropertiesFile.inputStream()
+    )
+}
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    kotlin("plugin.serialization") version "2.0.0"
 }
 
 kotlin {
@@ -29,6 +43,12 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.ktor.client.android)
+            implementation(libs.maps.compose)
+            implementation(libs.play.services.maps)
+            implementation(libs.androidx.core.splashscreen)
+            implementation(libs.play.services.location)
+            implementation(libs.android.sdk)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -41,10 +61,20 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.voyager.navigator)
             implementation(libs.voyager.screenmodel)
-            implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
+            implementation(libs.material.icons.extended)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.compose.foundation)
+            implementation(libs.kotlinx.datetime)
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
         }
     }
 }
@@ -59,6 +89,17 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        manifestPlaceholders["MAPS_API_KEY"] =
+            localProperties.getProperty(
+                "MAPS_API_KEY"
+            )
+
+        buildConfigField(
+            "String",
+            "AUTH0_CLIENT_ID",
+
+            "\"${localProperties.getProperty("AUTH0_CLIENT_ID")}\""
+        )
     }
     packaging {
         resources {
@@ -73,6 +114,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+    buildFeatures {
+        buildConfig = true
     }
 }
 
