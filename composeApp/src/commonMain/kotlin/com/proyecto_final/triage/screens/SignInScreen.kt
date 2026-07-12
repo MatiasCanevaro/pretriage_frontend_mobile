@@ -183,7 +183,7 @@ fun SignInContent( onForgotPassword: () -> Unit,
                 if(AppConfig.environment == Environment.DEV){
                     onSignIn()
                 }
-                else if (email.isNotBlank() && password.isNotBlank()) {
+                else if (email.isNotBlank() && isValidEmail(email) && password.isNotBlank()) {
                     viewModel.login(email, password, rememberMe)
                 }
             },

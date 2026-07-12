@@ -36,7 +36,7 @@ class HomeScreen : Screen {
         val navigator = LocalNavigator.current
         HomeContent(
             onEmergency = { },
-            onSolicitarAtencion = { navigator?.push(getSelectLocationScreen()) },
+            onSolicitarAtencion = { navigator?.push(SelectTypeGuardScreen()) },
             onCargarEstudios = { },
             onMiPerfil = { navigator?.push(ProfileScreen())}
         )

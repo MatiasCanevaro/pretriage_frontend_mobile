@@ -8,20 +8,29 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.proyecto_final.triage.screens.StartupState
 import org.maplibre.android.MapLibre
 import org.maplibre.android.WellKnownTileServer
 
 lateinit var appContext: Context
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+
+        val splash = installSplashScreen()
+
+        super.onCreate(savedInstanceState)
+
         appContext = applicationContext
 
         MapLibre.getInstance(this, null, WellKnownTileServer.MapLibre)
 
         enableEdgeToEdge()
-        super.onCreate(savedInstanceState)
+
+        splash.setKeepOnScreenCondition {
+            StartupState.loading
+        }
 
         setContent {
             App()

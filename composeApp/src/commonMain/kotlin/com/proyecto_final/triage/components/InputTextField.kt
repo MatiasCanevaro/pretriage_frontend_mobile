@@ -34,25 +34,21 @@ fun InputTextField(
     leadingIcon: ImageVector? = null,
     singleLine: Boolean = true,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     isError: Boolean = false,
     errorMessage: String = "Este campo es obligatorio",
     isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text
 ) {
-
     var passwordVisible by remember { mutableStateOf(false) }
-
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
-
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge
         )
-
         Spacer(modifier = Modifier.height(Spacing.sm))
-
         OutlinedTextField(
             value = value,
             onValueChange = { newValue ->
@@ -63,6 +59,7 @@ fun InputTextField(
                     onValueChange(newValue)
                 }
             },
+            enabled = enabled,
             keyboardOptions = KeyboardOptions(
                 keyboardType = when {
                     isPassword -> KeyboardType.Password
@@ -87,7 +84,7 @@ fun InputTextField(
                                 "Ocultar contraseña"
                             else
                                 "Mostrar contraseña",
-                        modifier = Modifier.clickable {
+                        modifier = Modifier.clickable(enabled = enabled) {
                             passwordVisible = !passwordVisible
                         }
                     )

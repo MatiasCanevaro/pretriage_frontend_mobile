@@ -42,13 +42,14 @@ fun SelectableOptionsGrid(
                     val seleccionado = selectedOption == option.label
 
                     Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
+                            .heightIn(min = 80.dp)
                             .background(
-                                if (seleccionado) Color(0xFFE3F2FD)
-                                else MaterialTheme.colorScheme.surface
-                            )
+                                if (seleccionado) Color(0xFFBBDEFB)
+                                else Color(0xFFE3F2FD))
                             .then(
                                 if (seleccionado)
                                     Modifier.border(1.dp, Color(0xFF5BB8D4), RoundedCornerShape(12.dp))

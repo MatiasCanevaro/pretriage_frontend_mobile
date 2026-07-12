@@ -1,5 +1,6 @@
 package com.proyecto_final.triage.network
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -16,6 +17,7 @@ data class Auth0LoginRequest(
 @Serializable
 data class Auth0LoginResponse(
     val id_token: String? = null,
+    @SerialName("access_token")
     val access_token: String? = null,
     val error: String? = null,
     val error_description: String? = null

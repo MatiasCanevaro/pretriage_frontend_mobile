@@ -36,9 +36,9 @@ import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 
-actual fun getSelectLocationScreen(): Screen = SelectLocationScreen()
+actual fun getSelectLocationScreen(type: String): Screen = SelectLocationScreen(type)
 
-class SelectLocationScreen : Screen {
+class SelectLocationScreen(private val type: String) : Screen {
 
     @Composable
     override fun Content() {

@@ -44,14 +44,15 @@ suspend fun login(request: LoginRequest): Result<String> {
 
         if (response.status == HttpStatusCode.OK) {
             val body = json.decodeFromString<LoginResponse>(bodyText)
-            if (body.token != null) {
-                Result.success(body.token)
-            } else {
-                Result.failure(Exception("No se recibió token"))
+
+            body.token?.let {
+                return Result.success(it)
             }
-        } else {
-            Result.failure(Exception("Credenciales inválidas"))
+
+            return Result.failure(Exception("No se recibió token"))
         }
+
+        return Result.failure(Exception("Credenciales inválidas"))
     } catch (e: Exception) {
         println("LOGIN EXCEPTION: ${e.message}")
         Result.failure(e)

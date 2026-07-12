@@ -34,10 +34,7 @@ data class Hospital(
     val esMasRecomendado: Boolean = false
 )
 
-class HospitalesScreen(
-    private val ubicacion: String,
-    private val transporte: String
-) : Screen {
+class HospitalesScreen(private val ubicacion: String, private val transporte: String) : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current

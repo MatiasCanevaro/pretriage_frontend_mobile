@@ -2,6 +2,7 @@ package com.proyecto_final.triage.network
 
 import android.content.Context
 import com.proyecto_final.triage.appContext
+import androidx.core.content.edit
 
 actual object TokenStorage {
     private const val PREFS_NAME = "auth_prefs"
@@ -16,7 +17,7 @@ actual object TokenStorage {
 
     actual fun saveToken(token: String, remember: Boolean) {
         if (remember) {
-            prefs.edit().putString(TOKEN_KEY, token).apply()
+            prefs.edit { putString(TOKEN_KEY, token) }
         } else {
             memoryToken = token
         }

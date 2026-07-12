@@ -1,80 +1,98 @@
 package com.proyecto_final.triage.screens
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.Navigator
+import com.proyecto_final.triage.components.ErrorBanner
+import com.proyecto_final.triage.config.AppConfig
 import com.proyecto_final.triage.network.TokenStorage
-import com.proyecto_final.triage.theme.AppTheme
-import kotlinx.coroutines.delay
-import org.jetbrains.compose.resources.painterResource
-import triage.composeapp.generated.resources.Res
-import triage.composeapp.generated.resources.ic_launcher
-import triage.composeapp.generated.resources.logo
+import com.proyecto_final.triage.network.httpClient
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.ServerResponseException
+import io.ktor.client.request.get
+import kotlinx.coroutines.launch
+import kotlin.concurrent.Volatile
 
 class SplashScreen : Screen {
+
     @Composable
     override fun Content() {
-        val navigator = LocalNavigator.current
 
-        LaunchedEffect(Unit) {
-            delay(2500)
-            val token = TokenStorage.getToken()
-            if (token != null) {
-                navigator?.replace(HomeScreen())
-            } else {
-                navigator?.replace(SignInScreen())
+        val navigator = LocalNavigator.current
+        val scope = rememberCoroutineScope()
+
+        var showPopup by remember { mutableStateOf(false) }
+
+        fun iniciar() {
+            scope.launch {
+                try {
+                    StartupState.loading = true
+
+                    httpClient.get("${AppConfig.baseUrl}/")
+
+                    continuar(navigator)
+
+                } catch (e: ClientRequestException) {
+                    // 401, 403, 404...
+                    continuar(navigator)
+
+                } catch (e: ServerResponseException) {
+                    // 5xx
+                    continuar(navigator)
+
+                } catch (e: Exception) {
+                    showPopup = true
+                    println("EXCEPCIÓN: ${e::class.qualifiedName}")
+                    println("MENSAJE: ${e.message}")
+                } finally {
+                    StartupState.loading = false
+                }
             }
         }
 
-        SplashContent()
-    }
-}
-
-@Composable
-fun SplashContent() {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Image(
-                painter = painterResource(Res.drawable.ic_launcher),
-                contentDescription = "Logo",
-                modifier = Modifier.size(240.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "PreTriage",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+        LaunchedEffect(Unit) {
+            iniciar()
         }
+
+        Box(modifier = Modifier.fillMaxSize()
+        ) {
+            if (showPopup) {
+                Box(modifier = Modifier.align(Alignment.TopCenter)) {
+                    ErrorBanner(
+                        message = "No se pudo conectar con el servidor.",
+                        buttonText = "Reintentar",
+                        icon = Icons.Default.Warning,
+                        onButtonClick = {
+                            showPopup = false
+                            iniciar()
+                        }
+                    )
+                }
+            }
+        }
+        // TODO: falta validar que el token no esté vencido.
     }
 }
 
-@Preview
-@Composable
-fun SplashPreview() {
-    AppTheme {
-        SplashContent()
+private fun continuar(navigator: Navigator?) {
+    if (TokenStorage.getToken() != null) {
+        navigator?.replace(HomeScreen())
+    } else {
+        navigator?.replace(SignInScreen())
     }
+}
+
+object StartupState {
+    @Volatile
+    var loading = true
 }
