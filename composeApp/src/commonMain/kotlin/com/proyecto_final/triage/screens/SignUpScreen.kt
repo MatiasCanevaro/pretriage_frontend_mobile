@@ -68,7 +68,8 @@ class SignUpScreen : Screen {
     }
 }
 
-@Preview @Composable
+@Preview
+@Composable
 fun SignUpPreview() {
     AppTheme {
         SignUpContent(onBack = {}, viewModel = SignUpViewModel(), state = SignUpState.Idle)
@@ -102,13 +103,15 @@ fun SignUpContent(onBack: () -> Unit, viewModel: SignUpViewModel, state: SignUpS
     var altura by remember { mutableStateOf("") }
 
     val onCreateAccount = {
-        val request = RegisterRequest(  nombre = nombre,
-                                        apellido = apellido,
-                                        numeroDocumento = numeroDocumento,
-                                        tipoDocumento = tipoDocumento,
-                                        tipoUsuario = "Paciente",
-                                        email = email,
-                                        password = password,
+        val request = RegisterRequest(
+            nombre = nombre,
+            apellido = apellido,
+            numeroDocumento = numeroDocumento,
+            tipoDocumento = tipoDocumento,
+            tipoUsuario = "Paciente",
+            email = email,
+            password = password,
+            rol = "USER"
         )
         viewModel.createAccount(request)
     }
@@ -125,29 +128,37 @@ fun SignUpContent(onBack: () -> Unit, viewModel: SignUpViewModel, state: SignUpS
 
         // HEADER
         Box(modifier = Modifier.fillMaxWidth()) {
-            Icon( imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Volver",
-                modifier =  Modifier.align(Alignment.CenterStart)
-                                    .clickable { if (currentStep > 1) currentStep-- else onBack() })
-            Image(painter = painterResource(Res.drawable.logo),
+                modifier = Modifier.align(Alignment.CenterStart)
+                    .clickable { if (currentStep > 1) currentStep-- else onBack() })
+            Image(
+                painter = painterResource(Res.drawable.logo),
                 contentDescription = "Logo",
                 modifier = Modifier.size(48.dp)
-                                    .align(Alignment.Center))
+                    .align(Alignment.Center)
+            )
         }
 
         Spacer(modifier = Modifier.height(4.dp))
 
         // TITULO Y SUBTITULO
-        Text( text = when (currentStep) {   1 -> "Creá tu cuenta"
-                                            2 -> "Información personal"
-                                            else -> "Información de salud"
+        Text(
+            text = when (currentStep) {
+                1 -> "Creá tu cuenta"
+                2 -> "Información personal"
+                else -> "Información de salud"
             },
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        Text( text = when (currentStep) {   1 -> "Datos de acceso"
-                                            else -> "Contanos un poco sobre vos" },
+        Text(
+            text = when (currentStep) {
+                1 -> "Datos de acceso"
+                else -> "Contanos un poco sobre vos"
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.fillMaxWidth(),
@@ -162,10 +173,13 @@ fun SignUpContent(onBack: () -> Unit, viewModel: SignUpViewModel, state: SignUpS
 
         // Contenido según paso
         when (currentStep) {
-            1 -> Step1Content(  email = email, onEmailChange = { email = it },
-                                password = password, onPasswordChange = { password = it },
-                                repeatPassword = repeatPassword, onRepeatPasswordChange = { repeatPassword = it },
-                                showErrors = showStep1Errors)
+            1 -> Step1Content(
+                email = email, onEmailChange = { email = it },
+                password = password, onPasswordChange = { password = it },
+                repeatPassword = repeatPassword, onRepeatPasswordChange = { repeatPassword = it },
+                showErrors = showStep1Errors
+            )
+
             2 -> Step2Content(
                 nombre = nombre,
                 onNombreChange = { nombre = it },
@@ -182,6 +196,7 @@ fun SignUpContent(onBack: () -> Unit, viewModel: SignUpViewModel, state: SignUpS
                 sexo = sexo,
                 onSexoChange = { sexo = it }
             )
+
             3 -> Step3Content(
                 peso = peso,
                 onPesoChange = { peso = it },
@@ -195,23 +210,28 @@ fun SignUpContent(onBack: () -> Unit, viewModel: SignUpViewModel, state: SignUpS
 
         Spacer(modifier = Modifier.weight(1f))
 
-        Button( onClick = { when (currentStep) {
-            1 -> {
-                showStep1Errors = true
-                if(email.isNotBlank() && isValidEmail(email) && password.isNotBlank() && repeatPassword.isNotBlank() && password == repeatPassword)
-                    currentStep = 2
-            }
-            2 -> {
-                showStep2Errors = true
-                if(nombre.isNotBlank() && apellido.isNotBlank())
-                  currentStep = 3
-            }
-            3 -> {
-                showStep3Errors = true
-                if(peso.isNotBlank() && altura.isNotBlank())
-                    onCreateAccount()
-            }
-        }},
+        Button(
+            onClick = {
+                when (currentStep) {
+                    1 -> {
+                        showStep1Errors = true
+                        if (email.isNotBlank() && isValidEmail(email) && password.isNotBlank() && repeatPassword.isNotBlank() && password == repeatPassword)
+                            currentStep = 2
+                    }
+
+                    2 -> {
+                        showStep2Errors = true
+                        if (nombre.isNotBlank() && apellido.isNotBlank())
+                            currentStep = 3
+                    }
+
+                    3 -> {
+                        showStep3Errors = true
+                        if (peso.isNotBlank() && altura.isNotBlank())
+                            onCreateAccount()
+                    }
+                }
+            },
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth().height(54.dp)
         ) {
@@ -227,11 +247,12 @@ fun SignUpContent(onBack: () -> Unit, viewModel: SignUpViewModel, state: SignUpS
 }
 
 @Composable
-fun Step1Content(   email: String, onEmailChange: (String) -> Unit,
-                    password: String, onPasswordChange: (String) -> Unit,
-                    repeatPassword: String, onRepeatPasswordChange: (String) -> Unit,
-                    showErrors: Boolean
-    ) {
+fun Step1Content(
+    email: String, onEmailChange: (String) -> Unit,
+    password: String, onPasswordChange: (String) -> Unit,
+    repeatPassword: String, onRepeatPasswordChange: (String) -> Unit,
+    showErrors: Boolean
+) {
     var passwordVisible by remember { mutableStateOf(false) }
     var repeatPasswordVisible by remember { mutableStateOf(false) }
 
@@ -242,21 +263,30 @@ fun Step1Content(   email: String, onEmailChange: (String) -> Unit,
 
     // Email
     val isEmailValid = isValidEmail(email)
-    InputTextField( label = "Correo electrónico", value = email, onValueChange = onEmailChange, leadingIcon = Icons.Filled.Email,
-                    isError = showErrors && (email.isBlank() || !isEmailValid),
-                    errorMessage = if (email.isBlank()) "Este campo es obligatorio" else "Ingresá un correo válido")
+    InputTextField(
+        label = "Correo electrónico", value = email, onValueChange = onEmailChange, leadingIcon = Icons.Filled.Email,
+        isError = showErrors && (email.isBlank() || !isEmailValid),
+        errorMessage = if (email.isBlank()) "Este campo es obligatorio" else "Ingresá un correo válido"
+    )
     Spacer(modifier = Modifier.height(Spacing.sm))
 
     // Contraseña
     val isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasSpecial
     val passwordsMatch = password == repeatPassword
-    InputTextField( label = "Contraseña", value = password, onValueChange = onPasswordChange, leadingIcon = Icons.Filled.Lock, isPassword = true,
+    InputTextField(
+        label = "Contraseña",
+        value = password,
+        onValueChange = onPasswordChange,
+        leadingIcon = Icons.Filled.Lock,
+        isPassword = true,
         isError = showErrors && (password.isBlank() || !isPasswordValid),
-        errorMessage = if (password.isBlank()) "Este campo es obligatorio" else "La contraseña no cumple los requisitos")
+        errorMessage = if (password.isBlank()) "Este campo es obligatorio" else "La contraseña no cumple los requisitos"
+    )
     Spacer(modifier = Modifier.height(Spacing.md))
 
     // Requisitos contraseña
-    Text(text = "La contraseña debe tener:",
+    Text(
+        text = "La contraseña debe tener:",
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.fillMaxWidth(),
         color = Color(0xFFB0BEC5)
@@ -270,43 +300,65 @@ fun Step1Content(   email: String, onEmailChange: (String) -> Unit,
     Spacer(modifier = Modifier.height(16.dp))
 
     // Repetir contraseña
-    InputTextField( label = "Repetir contraseña", value = repeatPassword, onValueChange = onRepeatPasswordChange, leadingIcon = Icons.Filled.Lock, isPassword = true,
+    InputTextField(
+        label = "Repetir contraseña",
+        value = repeatPassword,
+        onValueChange = onRepeatPasswordChange,
+        leadingIcon = Icons.Filled.Lock,
+        isPassword = true,
         isError = showErrors && (repeatPassword.isBlank() || !passwordsMatch),
-        errorMessage = if (repeatPassword.isBlank()) "Este campo es obligatorio" else "Las contraseñas no coinciden")
+        errorMessage = if (repeatPassword.isBlank()) "Este campo es obligatorio" else "Las contraseñas no coinciden"
+    )
 }
 
 @Composable
-fun Step2Content(nombre: String, onNombreChange: (String) -> Unit,
-                 apellido: String, onApellidoChange: (String) -> Unit,
-                 tipoDocumento: String, onTipoDocumentoChange: (String) -> Unit,
-                 numeroDocumento: String, onNumeroDocumentoChange: (String) -> Unit,
-                 fechaNacimiento: String, onFechaNacimientoChange: (String) -> Unit,
-                 genero: String, onGeneroChange: (String) -> Unit,
-                 sexo: String, onSexoChange: (String) -> Unit
+fun Step2Content(
+    nombre: String, onNombreChange: (String) -> Unit,
+    apellido: String, onApellidoChange: (String) -> Unit,
+    tipoDocumento: String, onTipoDocumentoChange: (String) -> Unit,
+    numeroDocumento: String, onNumeroDocumentoChange: (String) -> Unit,
+    fechaNacimiento: String, onFechaNacimientoChange: (String) -> Unit,
+    genero: String, onGeneroChange: (String) -> Unit,
+    sexo: String, onSexoChange: (String) -> Unit
 ) {
     // Nombre
-    InputTextField(label = "Nombre", value = nombre, onValueChange = onNombreChange, leadingIcon = Icons.Filled.Person,
+    InputTextField(
+        label = "Nombre", value = nombre, onValueChange = onNombreChange, leadingIcon = Icons.Filled.Person,
         isError = nombre.isBlank(),
-        errorMessage = "Este campo es obligatorio")
+        errorMessage = "Este campo es obligatorio"
+    )
     Spacer(modifier = Modifier.height(Spacing.sm))
 
     // Apellido
-    InputTextField(label = "Apellido", value = apellido, onValueChange = onApellidoChange, leadingIcon = Icons.Filled.Person,
+    InputTextField(
+        label = "Apellido", value = apellido, onValueChange = onApellidoChange, leadingIcon = Icons.Filled.Person,
         isError = apellido.isBlank(),
-        errorMessage = "Este campo es obligatorio")
+        errorMessage = "Este campo es obligatorio"
+    )
     Spacer(modifier = Modifier.height(Spacing.sm))
 
     // Tipo y Número de documento
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(modifier = Modifier.weight(1f)) {
             var expanded by remember { mutableStateOf(false) }
-            InputDropdownField( label = "Tipo de documento", value = tipoDocumento, expanded = expanded, onExpandedChange = { expanded = it },
-                options = listOf("DNI", "Lib. Cívica", "Lib. Enrolamiento"), onOptionSelected = { onTipoDocumentoChange(it) },
-                displayMap = mapOf("Libreta Civica" to "LC", "Libreta de Enrolamiento" to "LE"), modifier = Modifier.fillMaxWidth()
+            InputDropdownField(
+                label = "Tipo de documento",
+                value = tipoDocumento,
+                expanded = expanded,
+                onExpandedChange = { expanded = it },
+                options = listOf("DNI", "Lib. Cívica", "Lib. Enrolamiento"),
+                onOptionSelected = { onTipoDocumentoChange(it) },
+                displayMap = mapOf("Libreta Civica" to "LC", "Libreta de Enrolamiento" to "LE"),
+                modifier = Modifier.fillMaxWidth()
             )
         }
-        Column (modifier = Modifier.weight(1f)) {
-            InputTextField(label = "N° de documento", value = numeroDocumento, onValueChange = onNumeroDocumentoChange, keyboardType = KeyboardType.Number)
+        Column(modifier = Modifier.weight(1f)) {
+            InputTextField(
+                label = "N° de documento",
+                value = numeroDocumento,
+                onValueChange = onNumeroDocumentoChange,
+                keyboardType = KeyboardType.Number
+            )
         }
     }
 
@@ -350,22 +402,38 @@ fun Step2Content(nombre: String, onNombreChange: (String) -> Unit,
 }
 
 @Composable
-fun Step3Content( peso: String, onPesoChange: (String) -> Unit,
-                  altura: String, onAlturaChange: (String) -> Unit,
-                  pesoError: Boolean,
-                  alturaError: Boolean,
-                  state: SignUpState) {
+fun Step3Content(
+    peso: String, onPesoChange: (String) -> Unit,
+    altura: String, onAlturaChange: (String) -> Unit,
+    pesoError: Boolean,
+    alturaError: Boolean,
+    state: SignUpState
+) {
 
     // Peso
-    InputTextField(label = "Peso (kg)", value = peso, onValueChange = onPesoChange, leadingIcon = Icons.Filled.FitnessCenter, isError = pesoError, keyboardType = KeyboardType.Number)
+    InputTextField(
+        label = "Peso (kg)",
+        value = peso,
+        onValueChange = onPesoChange,
+        leadingIcon = Icons.Filled.FitnessCenter,
+        isError = pesoError,
+        keyboardType = KeyboardType.Number
+    )
     Spacer(modifier = Modifier.height(Spacing.sm))
 
     // Altura
-    InputTextField(label = "Altura (cm)", value = altura, onValueChange = onAlturaChange, leadingIcon = Icons.Filled.Height, isError = alturaError, keyboardType = KeyboardType.Number)
+    InputTextField(
+        label = "Altura (cm)",
+        value = altura,
+        onValueChange = onAlturaChange,
+        leadingIcon = Icons.Filled.Height,
+        isError = alturaError,
+        keyboardType = KeyboardType.Number
+    )
     Spacer(modifier = Modifier.height(Spacing.sm))
 
     // Info
-    InfoBanner( text = "Estos datos estarán protegidos y nos permitirán brindar una mejor experiencia" )
+    InfoBanner(text = "Estos datos estarán protegidos y nos permitirán brindar una mejor experiencia")
 
     if (state is SignUpState.Error) {
         Text(
