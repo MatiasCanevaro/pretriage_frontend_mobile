@@ -35,6 +35,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import com.proyecto_final.triage.components.CommonHeader
+import com.proyecto_final.triage.components.HeaderAlignment
 import com.proyecto_final.triage.components.InfoBanner
 import com.proyecto_final.triage.components.InputDropdownField
 import com.proyecto_final.triage.components.InputTextField
@@ -121,40 +123,20 @@ fun SignUpContent(onBack: () -> Unit, viewModel: SignUpViewModel, state: SignUpS
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(36.dp))
-
-        // HEADER
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Icon( imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Volver",
-                modifier =  Modifier.align(Alignment.CenterStart)
-                                    .clickable { if (currentStep > 1) currentStep-- else onBack() })
-            Image(painter = painterResource(Res.drawable.logo),
-                contentDescription = "Logo",
-                modifier = Modifier.size(48.dp)
-                                    .align(Alignment.Center))
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // TITULO Y SUBTITULO
-        Text( text = when (currentStep) {   1 -> "Creá tu cuenta"
-                                            2 -> "Información personal"
-                                            else -> "Información de salud"
+        CommonHeader(
+            title = when (currentStep) {
+                1 -> "Creá tu cuenta"
+                2 -> "Información personal"
+                else -> "Información de salud"
             },
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground
+            subtitle = when (currentStep) {
+                1 -> "Datos de acceso"
+                else -> "Contanos un poco sobre vos"
+            },
+            alignment = HeaderAlignment.CENTER,
+            showLogo = true,
+            onBack = { if (currentStep > 1) currentStep-- else onBack() }
         )
-
-        Text( text = when (currentStep) {   1 -> "Datos de acceso"
-                                            else -> "Contanos un poco sobre vos" },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.secondary,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         // PROGRESO
         ProgressBar(currentStep = currentStep, totalSteps = 3)

@@ -19,6 +19,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import com.proyecto_final.triage.viewmodels.HospitalConArribo
+import com.proyecto_final.triage.viewmodels.HospitalesState
+import com.proyecto_final.triage.viewmodels.HospitalesViewModel
+import com.proyecto_final.triage.viewmodels.minutosHasta
 
 data class Hospital(
     val nombre: String,
@@ -28,77 +32,81 @@ data class Hospital(
     val personasEspera: Int,
     val tiempoEsperaMin: Int,
     val tiempoEsperaMax: Int,
-    val transporte: String,
     val linea: String,
     val paradaDesde: String,
     val esMasRecomendado: Boolean = false
 )
 
-class HospitalesScreen(private val ubicacion: String, private val transporte: String) : Screen {
+class HospitalesScreen(private val type: String, private val ubicacion: String) : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current
+        val viewModel = remember { HospitalesViewModel() }
+        val state by viewModel.state.collectAsState()
 
-        // Función preparada para conectar con el back
-        val hospitales = obtenerHospitalesEstaticos(transporte)
+        LaunchedEffect(ubicacion, type) {
+            val (lat, lon) = ubicacion.split(",").map { it.trim().toDouble() }
+            viewModel.cargarHospitalesCercanos(lat, lon, type)
+        }
 
-        HospitalesContent(
-            ubicacion = ubicacion,
-            transporte = transporte,
-            hospitales = hospitales,
-            onBack = { navigator?.pop() },
-            onHospitalClick = { /* TODO: navegar a detalle */ }
-        )
+        when (val currentState = state) {
+            is HospitalesState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF5BB8D4))
+                }
+            }
+
+            is HospitalesState.Error -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = currentState.message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
+            is HospitalesState.Success -> {
+                HospitalesContent(
+                    ubicacion = ubicacion,
+                    hospitales = currentState.hospitales.map { it.toHospital() },
+                    onBack = { navigator?.pop() },
+                    onHospitalClick = { /* TODO: navegar a detalle */ }
+                )
+            }
+        }
     }
 }
 
-// Función lista para reemplazar con llamada al back
-fun obtenerHospitalesEstaticos(transporte: String): List<Hospital> {
-    return listOf(
-        Hospital(
-            nombre = "Hospital Italiano",
-            guardia = "Guardia - Clínica Médica",
-            distanciaKm = 1.5,
-            tiempoMin = 15,
-            personasEspera = 8,
-            tiempoEsperaMin = 20,
-            tiempoEsperaMax = 30,
-            transporte = transporte,
-            linea = "Colectivo 59",
-            paradaDesde = "Desde Av. Santa fe y Pueyrredón",
-            esMasRecomendado = true
-        ),
-        Hospital(
-            nombre = "Hospital Fernandez",
-            guardia = "Guardia - Clínica Médica",
-            distanciaKm = 2.8,
-            tiempoMin = 25,
-            personasEspera = 15,
-            tiempoEsperaMin = 40,
-            tiempoEsperaMax = 70,
-            transporte = transporte,
-            linea = "Colectivo 29",
-            paradaDesde = "Desde Av. Santa fe y Pueyrredón"
-        ),
-        Hospital(
-            nombre = "Hospital Británico",
-            guardia = "Guardia - Clínica Médica",
-            distanciaKm = 3.2,
-            tiempoMin = 30,
-            personasEspera = 20,
-            tiempoEsperaMin = 50,
-            tiempoEsperaMax = 90,
-            transporte = transporte,
-            linea = "Colectivo 12",
-            paradaDesde = "Desde Av. Santa fe y Pueyrredón"
-        )
+// TODO: paradaDesde no existe en el back (CombinacionRutasDTO solo tiene nombreLinea)
+// TODO: personasEspera, tiempoEsperaMin/Max, esMasRecomendado: falta definir de dónde salen en el back
+private fun HospitalConArribo.toHospital(): Hospital {
+    return Hospital(
+        nombre = hospital.nombre,
+        guardia = hospital.especialidades.joinToString(", ") { it.nombre }.ifBlank { "Guardia" },
+        distanciaKm = (arribo?.distanciaMetros ?: 0) / 1000.0,
+        tiempoMin = arribo?.tiempoEstimadoArribo?.let { minutosHasta(it) } ?: 0,
+        personasEspera = 0,
+        tiempoEsperaMin = 0,
+        tiempoEsperaMax = 0,
+        linea = arribo?.combinacionesLineas
+            ?.joinToString(" → ") { it.nombreLinea }
+            ?.ifBlank { "No disponible" }
+            ?: "No disponible",
+        paradaDesde = "",
+        esMasRecomendado = false
     )
 }
 
 @Composable
 fun HospitalesContent(
     ubicacion: String,
-    transporte: String,
     hospitales: List<Hospital>,
     onBack: () -> Unit,
     onHospitalClick: (Hospital) -> Unit
@@ -126,7 +134,7 @@ fun HospitalesContent(
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = "Segun tu ubicación y viaje en $transporte",
+            text = "Segun tu ubicación",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -158,13 +166,21 @@ fun HospitalesContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Lista de hospitales
-        hospitales.forEach { hospital ->
-            HospitalCard(
-                hospital = hospital,
-                onClick = { onHospitalClick(hospital) }
+        if (hospitales.isEmpty()) {
+            Text(
+                text = "No encontramos hospitales cercanos para esta ubicación.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 24.dp)
             )
-            Spacer(modifier = Modifier.height(12.dp))
+        } else {
+            hospitales.forEach { hospital ->
+                HospitalCard(
+                    hospital = hospital,
+                    onClick = { onHospitalClick(hospital) }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
         }
 
         // Info box abajo
@@ -310,11 +326,13 @@ fun HospitalCard(hospital: Hospital, onClick: () -> Unit) {
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onBackground
                         )
-                        Text(
-                            text = hospital.paradaDesde,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        if (hospital.paradaDesde.isNotBlank()) {
+                            Text(
+                                text = hospital.paradaDesde,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     Icon(
                         imageVector = Icons.Filled.ChevronRight,

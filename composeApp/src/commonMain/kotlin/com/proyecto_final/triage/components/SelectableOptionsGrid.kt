@@ -42,7 +42,7 @@ fun SelectableOptionsGrid(
                     val seleccionado = selectedOption == option.label
 
                     Box(
-                        contentAlignment = Alignment.Center,
+                        contentAlignment = Alignment.CenterStart,
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
@@ -60,7 +60,7 @@ fun SelectableOptionsGrid(
                             }
                             .padding(16.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = option.icon,
                                 contentDescription = null,
