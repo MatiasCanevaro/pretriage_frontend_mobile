@@ -51,6 +51,14 @@ class ProfileScreen : Screen {
         ProfileContent(
             state = state,
             onRetry = { viewModel.cargarPerfil() },
+            onEditProfile = { perfil ->
+                navigator?.push(
+                    EditProfileScreen(
+                        perfil = perfil,
+                        onProfileUpdated = { viewModel.cargarPerfil() }
+                    )
+                )
+            },
             onHealthPlan = { navigator?.push(HealthPlanScreen()) },
             onMyStudies = {
                 //TODO
@@ -71,10 +79,10 @@ private val perfilDeEjemplo = PerfilResponse(
     tipoDocumento = "DNI",
     numeroDocumento = "42.123.456",
     fechaNacimiento = "2001-05-15",
-    sexo = "Masculino",
-    genero = "Hombre",
-    peso = "72 kg",
-    altura = "1.78 m"
+    generoBiologico = "FEMENINO",
+    generoConElQueSeIdentifica = "FEMENINO",
+    peso = 72.0,
+    alturaPersona = 178
 )
 
 @Preview
@@ -84,6 +92,7 @@ fun ProfilePreview() {
         ProfileContent(
             state = ProfileState.Success(perfilDeEjemplo),
             onRetry = { },
+            onEditProfile = { },
             onHealthPlan = { },
             onMyStudies = { },
             onLogOut = { },
@@ -96,6 +105,7 @@ fun ProfilePreview() {
 fun ProfileContent(
     state: ProfileState,
     onRetry: () -> Unit,
+    onEditProfile: (PerfilResponse) -> Unit,
     onHealthPlan: () -> Unit,
     onMyStudies: () -> Unit,
     onLogOut: () -> Unit,
@@ -182,15 +192,25 @@ fun ProfileContent(
                     value = formatearFechaNacimiento(perfil.fechaNacimiento ?: "")
                 )
 
-                ProfileFieldWithArrow(label = "Sexo", value = perfil.sexo ?: "")
-                ProfileFieldWithArrow(label = "Genero", value = perfil.genero ?: "")
-                ProfileField(icon = Icons.Default.FitnessCenter, label = "Peso", value = perfil.peso ?: "")
-                ProfileField(icon = Icons.Default.Height, label = "Altura", value = perfil.altura ?: "")
+                ProfileFieldWithArrow(label = "Sexo", value = perfil.generoBiologico ?: "")
+                ProfileFieldWithArrow(label = "Genero", value = perfil.generoConElQueSeIdentifica ?: "")
+                ProfileField(
+                    icon = Icons.Default.FitnessCenter,
+                    label = "Peso",
+                    value = perfil.peso?.let {
+                        if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
+                    } ?: ""
+                )
+                ProfileField(
+                    icon = Icons.Default.Height,
+                    label = "Altura",
+                    value = perfil.alturaPersona?.let { "${it} cm" } ?: ""
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
-                    onClick = { },
+                    onClick = { onEditProfile(perfil) },
                     shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5BB8D4)),
                     modifier = Modifier
