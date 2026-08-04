@@ -76,7 +76,7 @@ private val camposDelPerfil = setOf(
     "alturaDireccion", "piso", "codigoPostal", "ciudad", "provincia", "peso", "alturaPersona"
 )
 
-private fun parsearErroresDeCampo(bodyText: String): Map<String, String>? {
+internal fun parsearErroresDeCampo(bodyText: String, campos: Set<String>): Map<String, String>? {
     if (bodyText.isBlank()) return null
 
     val errores = mutableMapOf<String, String>()
@@ -101,7 +101,7 @@ private fun parsearErroresDeCampo(bodyText: String): Map<String, String>? {
     }
 
     root.forEach { (campo, valor) ->
-        if (campo in camposDelPerfil) {
+        if (campo in campos) {
             (valor as? JsonPrimitive)?.contentOrNull?.let { errores[campo] = it }
         }
     }
@@ -151,7 +151,7 @@ suspend fun actualizarPerfil(request: PerfilUsuarioRequest): PerfilUpdateResult 
             )
         }
 
-        val erroresDeCampo = parsearErroresDeCampo(bodyText)
+        val erroresDeCampo = parsearErroresDeCampo(bodyText, camposDelPerfil)
         if (erroresDeCampo != null) {
             return PerfilUpdateResult.FieldErrors(erroresDeCampo)
         }
