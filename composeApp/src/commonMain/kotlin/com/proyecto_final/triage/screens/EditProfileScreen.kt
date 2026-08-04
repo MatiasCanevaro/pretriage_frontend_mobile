@@ -29,10 +29,6 @@ import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.EditProfileState
 import com.proyecto_final.triage.viewmodels.EditProfileViewModel
 
-//TODO agregar placeholder en los campos sin texto, 
-//  agregar * para los campos obligatorios 
-//  y agregar campos faltantes en pantalla profileScreen 
-//  y probar que no rompi nada
 
 class EditProfileScreen(
     private val perfil: PerfilResponse,
@@ -118,6 +114,7 @@ fun EditProfileContent(
             value = state.nombre,
             onValueChange = { viewModel.onFieldChange("nombre", it) },
             leadingIcon = Icons.Filled.Person,
+            placeholder = "Ingresá tu nombre",
             isError = state.errors["nombre"] != null,
             errorMessage = state.errors["nombre"] ?: "Este campo es obligatorio"
         )
@@ -128,6 +125,7 @@ fun EditProfileContent(
             value = state.apellido,
             onValueChange = { viewModel.onFieldChange("apellido", it) },
             leadingIcon = Icons.Filled.Person,
+            placeholder = "Ingresá tu apellido",
             isError = state.errors["apellido"] != null,
             errorMessage = state.errors["apellido"] ?: "Este campo es obligatorio"
         )
@@ -146,6 +144,7 @@ fun EditProfileContent(
                     onExpandedChange = { tipoDocumentoExpanded = it },
                     options = listOf("DNI", "Lib. Cívica", "Lib. Enrolamiento"),
                     onOptionSelected = { viewModel.onFieldChange("tipoDocumento", it) },
+                    placeholder = "Seleccioná un tipo",
                     isError = state.errors["tipoDocumento"] != null,
                     errorMessage = state.errors["tipoDocumento"] ?: "Este campo es obligatorio"
                 )
@@ -156,6 +155,7 @@ fun EditProfileContent(
                     value = state.numeroDocumento,
                     onValueChange = { viewModel.onFieldChange("numeroDocumento", it) },
                     keyboardType = KeyboardType.Number,
+                    placeholder = "Ingresá tu número",
                     isError = state.errors["numeroDocumento"] != null,
                     errorMessage = state.errors["numeroDocumento"] ?: "Este campo es obligatorio"
                 )
@@ -168,6 +168,7 @@ fun EditProfileContent(
             label = "Fecha de nacimiento",
             value = state.fechaNacimiento,
             onValueChange = { viewModel.onFieldChange("fechaNacimiento", it) },
+            placeholder = "DD/MM/AAAA",
             isError = state.errors["fechaNacimiento"] != null,
             errorMessage = state.errors["fechaNacimiento"] ?: "Este campo es obligatorio"
         )
@@ -188,6 +189,7 @@ fun EditProfileContent(
                     onExpandedChange = { sexoExpanded = it },
                     options = listOf("Masculino", "Femenino"),
                     onOptionSelected = { viewModel.onFieldChange("generoBiologico", it) },
+                    placeholder = "Seleccioná un sexo",
                     isError = state.errors["generoBiologico"] != null,
                     errorMessage = state.errors["generoBiologico"] ?: "Este campo es obligatorio"
                 )
@@ -201,6 +203,7 @@ fun EditProfileContent(
                     onExpandedChange = { generoExpanded = it },
                     options = listOf("Masculino", "Femenino", "Otro"),
                     onOptionSelected = { viewModel.onFieldChange("generoConElQueSeIdentifica", it) },
+                    placeholder = "Seleccioná un género",
                     isError = state.errors["generoConElQueSeIdentifica"] != null,
                     errorMessage = state.errors["generoConElQueSeIdentifica"] ?: "Este campo es obligatorio"
                 )
@@ -216,6 +219,7 @@ fun EditProfileContent(
             onValueChange = { viewModel.onFieldChange("email", it) },
             leadingIcon = Icons.Filled.Email,
             keyboardType = KeyboardType.Email,
+            placeholder = "nombre@ejemplo.com",
             isError = state.errors["email"] != null,
             errorMessage = state.errors["email"] ?: "Este campo es obligatorio"
         )
@@ -227,6 +231,7 @@ fun EditProfileContent(
             onValueChange = { viewModel.onFieldChange("telefono", it) },
             leadingIcon = Icons.Filled.Phone,
             keyboardType = KeyboardType.Phone,
+            placeholder = "Ingresá tu teléfono",
             isError = state.errors["telefono"] != null,
             errorMessage = state.errors["telefono"] ?: "Ingresá un teléfono válido"
         )
@@ -239,64 +244,54 @@ fun EditProfileContent(
             value = state.calle,
             onValueChange = { viewModel.onFieldChange("calle", it) },
             leadingIcon = Icons.Filled.Home,
+            placeholder = "Ingresá tu calle",
             isError = state.errors["calle"] != null,
             errorMessage = state.errors["calle"] ?: "Este campo es obligatorio"
         )
         Spacer(modifier = Modifier.height(Spacing.sm))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                InputTextField(
-                    label = "Altura",
-                    value = state.alturaDireccion,
-                    onValueChange = { viewModel.onFieldChange("alturaDireccion", it) },
-                    keyboardType = KeyboardType.Number,
-                    isError = state.errors["alturaDireccion"] != null,
-                    errorMessage = state.errors["alturaDireccion"] ?: "Ingresá un valor válido"
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                InputTextField(
-                    label = "Piso",
-                    value = state.piso,
-                    onValueChange = { viewModel.onFieldChange("piso", it) },
-                    keyboardType = KeyboardType.Number,
-                    isError = state.errors["piso"] != null,
-                    errorMessage = state.errors["piso"] ?: "Ingresá un valor válido"
-                )
-            }
-        }
+        InputTextField(
+            label = "Altura",
+            value = state.alturaDireccion,
+            onValueChange = { viewModel.onFieldChange("alturaDireccion", it) },
+            keyboardType = KeyboardType.Number,
+            placeholder = "Ingresá la altura",
+            isError = state.errors["alturaDireccion"] != null,
+            errorMessage = state.errors["alturaDireccion"] ?: "Ingresá un valor válido"
+        )
+    
+        InputTextField(
+            label = "Piso (Opcional)",
+            value = state.piso,
+            onValueChange = { viewModel.onFieldChange("piso", it) },
+            keyboardType = KeyboardType.Number,
+            placeholder = "Ingresá el piso",
+            isError = state.errors["piso"] != null,
+            errorMessage = state.errors["piso"] ?: "Ingresá un valor válido"
+        )    
+        
 
         Spacer(modifier = Modifier.height(Spacing.sm))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                InputTextField(
-                    label = "Código postal",
-                    value = state.codigoPostal,
-                    onValueChange = { viewModel.onFieldChange("codigoPostal", it) },
-                    keyboardType = KeyboardType.Number,
-                    isError = state.errors["codigoPostal"] != null,
-                    errorMessage = state.errors["codigoPostal"] ?: "Ingresá un código postal válido"
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                InputTextField(
-                    label = "Ciudad",
-                    value = state.ciudad,
-                    onValueChange = { viewModel.onFieldChange("ciudad", it) },
-                    leadingIcon = Icons.Filled.Place,
-                    isError = state.errors["ciudad"] != null,
-                    errorMessage = state.errors["ciudad"] ?: "Este campo es obligatorio"
-                )
-            }
-        }
+        
+        InputTextField(
+            label = "Código postal",
+            value = state.codigoPostal,
+            onValueChange = { viewModel.onFieldChange("codigoPostal", it) },
+            keyboardType = KeyboardType.Number,
+            placeholder = "Ingresá el código postal",
+            isError = state.errors["codigoPostal"] != null,
+            errorMessage = state.errors["codigoPostal"] ?: "Ingresá un código postal válido"
+        )
+    
+        InputTextField(
+            label = "Ciudad",
+            value = state.ciudad,
+            onValueChange = { viewModel.onFieldChange("ciudad", it) },
+            leadingIcon = Icons.Filled.Place,
+            placeholder = "Ingresá tu ciudad",
+            isError = state.errors["ciudad"] != null,
+            errorMessage = state.errors["ciudad"] ?: "Este campo es obligatorio"
+        )
 
         Spacer(modifier = Modifier.height(Spacing.sm))
 
@@ -305,6 +300,7 @@ fun EditProfileContent(
             value = state.provincia,
             onValueChange = { viewModel.onFieldChange("provincia", it) },
             leadingIcon = Icons.Filled.Map,
+            placeholder = "Ingresá tu provincia",
             isError = state.errors["provincia"] != null,
             errorMessage = state.errors["provincia"] ?: "Este campo es obligatorio"
         )
@@ -323,6 +319,7 @@ fun EditProfileContent(
                     onValueChange = { viewModel.onFieldChange("peso", it) },
                     leadingIcon = Icons.Filled.FitnessCenter,
                     keyboardType = KeyboardType.Decimal,
+                    placeholder = "Ej: 70",
                     isError = state.errors["peso"] != null,
                     errorMessage = state.errors["peso"] ?: "Ingresá un peso válido"
                 )
@@ -334,6 +331,7 @@ fun EditProfileContent(
                     onValueChange = { viewModel.onFieldChange("alturaPersona", it) },
                     leadingIcon = Icons.Filled.Height,
                     keyboardType = KeyboardType.Number,
+                    placeholder = "Ej: 170",
                     isError = state.errors["alturaPersona"] != null,
                     errorMessage = state.errors["alturaPersona"] ?: "Ingresá una altura válida"
                 )

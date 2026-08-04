@@ -26,7 +26,8 @@ fun InputDateField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     isError: Boolean = false,
-    errorMessage: String = "Este campo es obligatorio"
+    errorMessage: String = "Este campo es obligatorio",
+    placeholder: String? = null
 ) {
     var showDialog by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
@@ -52,6 +53,14 @@ fun InputDateField(
                 .fillMaxWidth()
                 .clickable { showDialog = true },
             shape = RoundedCornerShape(12.dp),
+            placeholder = if (placeholder != null) {
+                {
+                    Text(
+                        text = placeholder,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            } else null,
             isError = isError,
             supportingText = {
                 if (isError) {

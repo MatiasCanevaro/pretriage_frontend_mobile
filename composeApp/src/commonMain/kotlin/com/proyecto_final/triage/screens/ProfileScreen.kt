@@ -81,6 +81,14 @@ private val perfilDeEjemplo = PerfilResponse(
     fechaNacimiento = "2001-05-15",
     generoBiologico = "FEMENINO",
     generoConElQueSeIdentifica = "FEMENINO",
+    email = "rperez@gmail.com",
+    telefono = "11-1234-5678",
+    calle = "Av. Cabildo",
+    alturaDireccion = "1234",
+    piso = "3",
+    codigoPostal = "1428",
+    ciudad = "CABA",
+    provincia = "Buenos Aires",
     peso = 72.0,
     alturaPersona = 178
 )
@@ -165,6 +173,7 @@ fun ProfileContent(
 
             is ProfileState.Success -> {
                 val perfil = state.perfil
+                val placeHolderText = "Sin especificar"
 
                 ProfileHeaderCard(
                     nombreCompleto = "${perfil.nombre} ${perfil.apellido}"
@@ -189,22 +198,64 @@ fun ProfileContent(
                 ProfileField(
                     icon = Icons.Default.CalendarMonth,
                     label = "Fecha de nacimiento",
-                    value = formatearFechaNacimiento(perfil.fechaNacimiento ?: "")
+                    value = formatearFechaNacimiento(perfil.fechaNacimiento ?: placeHolderText)
                 )
 
-                ProfileFieldWithArrow(label = "Sexo", value = perfil.generoBiologico ?: "")
-                ProfileFieldWithArrow(label = "Genero", value = perfil.generoConElQueSeIdentifica ?: "")
+                ProfileFieldWithArrow(label = "Sexo", value = perfil.generoBiologico ?: placeHolderText)
+                ProfileFieldWithArrow(label = "Genero", value = perfil.generoConElQueSeIdentifica ?: placeHolderText)
+                ProfileField(
+                    icon =  Icons.Filled.Email,
+                    label = "Correo electrónico",
+                    value = perfil.email ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.Phone,
+                    label = "Teléfono",
+                    value = perfil.telefono ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.Home,
+                    label = "Calle",
+                    value = perfil.calle ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.LocationCity,
+                    label = "Altura",
+                    value = perfil.alturaDireccion ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.LocationCity,
+                    label = "Piso",
+                    value = perfil.piso ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.LocationCity,
+                    label = "Código postal",
+                    value = perfil.codigoPostal ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.Place,
+                    label = "Ciudad",
+                    value = perfil.ciudad ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.Map,
+                    label = "Provincia",
+                    value = perfil.provincia ?: placeHolderText
+                )
+
                 ProfileField(
                     icon = Icons.Default.FitnessCenter,
                     label = "Peso",
                     value = perfil.peso?.let {
-                        if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
-                    } ?: ""
+                        if (it % 1.0 == 0.0) "${it.toInt().toString()} kg" else "${it.toString()} kg" 
+                    } ?: placeHolderText
                 )
+                
                 ProfileField(
                     icon = Icons.Default.Height,
                     label = "Altura",
-                    value = perfil.alturaPersona?.let { "${it} cm" } ?: ""
+                    value = perfil.alturaPersona?.let { "${it} cm" } ?: placeHolderText
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
