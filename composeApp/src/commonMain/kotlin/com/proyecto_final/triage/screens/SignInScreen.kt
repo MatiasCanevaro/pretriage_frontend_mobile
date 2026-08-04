@@ -47,11 +47,13 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.proyecto_final.triage.components.InputTextField
 import com.proyecto_final.triage.config.AppConfig
+import com.proyecto_final.triage.config.DevToken
 import com.proyecto_final.triage.config.Environment
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.SignInState
 import com.proyecto_final.triage.viewmodels.SignInViewModel
 import kotlinx.coroutines.launch
+import com.proyecto_final.triage.network.TokenStorage
 
 class SignInScreen : Screen {
     @Composable
@@ -190,6 +192,7 @@ fun SignInContent(
                 showErrors = true
                 if (AppConfig.environment == Environment.DEV) {
                     onSignIn()
+                    TokenStorage.saveToken(DevToken.TOKEN, false);
                 } else if (email.isNotBlank() && isValidEmail(email) && password.isNotBlank()) {
                     viewModel.login(email, password, rememberMe)
                 }

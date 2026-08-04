@@ -38,6 +38,8 @@ class HomeScreen : Screen {
 
         if (TokenStorage.getToken() == null) {
             navigator?.push(SignInScreen())
+        } else {
+            println("TOKEN ${TokenStorage.getToken()}")
         }
 
         HomeContent(
