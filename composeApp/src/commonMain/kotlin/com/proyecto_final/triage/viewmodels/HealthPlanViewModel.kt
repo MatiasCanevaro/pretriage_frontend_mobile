@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.proyecto_final.triage.network.CredencialRequest
 import com.proyecto_final.triage.network.CredencialUpdateResult
+import com.proyecto_final.triage.network.actualizarCredencial
 import com.proyecto_final.triage.network.cargarCredencial
 import com.proyecto_final.triage.screens.Credencial
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,23 +33,61 @@ class HealthPlanViewModel : ViewModel() {
                 )
             )
 
-            when (result) {
-                is CredencialUpdateResult.Success -> {
-                    _state.value = CredencialState.Success(result.mensaje)
-                    obtenerCredenciales()
-                }
+            procesarResultado(result)
+        }
+    }
 
-                is CredencialUpdateResult.FieldErrors ->
-                    _state.value = CredencialState.Error(fieldErrors = result.errors)
+    fun actualizarCredencial(
+        idCredencial: Long,
+        nombreObraSocial: String,
+        numeroAfiliado: String,
+        plan: String,
+        fechaVencimiento: String
+    ) {
+        viewModelScope.launch {
+            _state.value = CredencialState.Loading
 
-                is CredencialUpdateResult.Error ->
-                    _state.value = CredencialState.Error(message = result.message)
-            }
+            val result = actualizarCredencial(
+                idCredencial,
+                CredencialRequest(
+                    nombreObraSocial = nombreObraSocial,
+                    numeroAfiliado = numeroAfiliado,
+                    plan = plan,
+                    fechaVencimiento = convertirFechaVencimiento(fechaVencimiento)
+                )
+            )
+
+            procesarResultado(result)
+        }
+    }
+
+    fun eliminarCredencial(idCredencial: Long) {
+        viewModelScope.launch {
+            _state.value = CredencialState.Loading
+
+            procesarResultado(
+                com.proyecto_final.triage.network.eliminarCredencial(idCredencial)
+            )
         }
     }
 
     fun resetState() {
         _state.value = CredencialState.Idle
+    }
+
+    private fun procesarResultado(result: CredencialUpdateResult) {
+        when (result) {
+            is CredencialUpdateResult.Success -> {
+                _state.value = CredencialState.Success(result.mensaje)
+                obtenerCredenciales()
+            }
+
+            is CredencialUpdateResult.FieldErrors ->
+                _state.value = CredencialState.Error(fieldErrors = result.errors)
+
+            is CredencialUpdateResult.Error ->
+                _state.value = CredencialState.Error(message = result.message)
+        }
     }
 
     fun obtenerCredenciales() {

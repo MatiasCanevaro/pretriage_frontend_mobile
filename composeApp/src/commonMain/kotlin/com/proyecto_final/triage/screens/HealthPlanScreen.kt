@@ -1,6 +1,7 @@
 package com.proyecto_final.triage.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -54,7 +55,10 @@ data class Credencial(
     val plan: String,
 
     @SerialName("fechaVencimiento")
-    val fechaVencimiento: String
+    val fechaVencimiento: String,
+
+    @SerialName("id")
+    val idCredencial: Long = 0
 )
 
 class HealthPlanScreen : Screen {
@@ -90,6 +94,7 @@ fun HealthPlanContent(onBack: () -> Unit,
 
     var showErrors by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     // isEditingExisting: si la card actual es una credencial ya cargada,
     // controla si el form está bloqueado (false) o habilitado para editar (true)
@@ -99,6 +104,7 @@ fun HealthPlanContent(onBack: () -> Unit,
     var numeroAfiliado by remember { mutableStateOf("") }
     var plan by remember { mutableStateOf("") }
     var fechaVencimiento by remember { mutableStateOf("") }
+    var credencialActualId by remember { mutableStateOf(0L) }
 
     // OBTENGO LAS CREDENCIALES DEL SERVIDOR
     LaunchedEffect(Unit) {
@@ -143,6 +149,7 @@ fun HealthPlanContent(onBack: () -> Unit,
             fechaVencimiento = ""
 
             showConfirmDialog = false
+            showDeleteDialog = false
             isEditingExisting = false
 
             viewModel.resetState()
@@ -153,12 +160,14 @@ fun HealthPlanContent(onBack: () -> Unit,
 
         isEditingExisting = false
         showErrors = false
+        showDeleteDialog = false
         viewModel.resetState()
 
         if (pagerState.currentPage < credenciales.size) {
 
             val credencial = credenciales[pagerState.currentPage]
 
+            credencialActualId = credencial.idCredencial
             nombreObraSocial = credencial.nombreObraSocial
             numeroAfiliado = credencial.numeroAfiliado
             plan = credencial.plan
@@ -166,6 +175,7 @@ fun HealthPlanContent(onBack: () -> Unit,
 
         } else {
 
+            credencialActualId = 0L
             nombreObraSocial = nuevaCredencial.nombreObraSocial
             numeroAfiliado = nuevaCredencial.numeroAfiliado
             plan = nuevaCredencial.plan
@@ -275,9 +285,10 @@ fun HealthPlanContent(onBack: () -> Unit,
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = Color.White
                                     )
-                                }
-                            }
-                        }
+}
+
+}
+    }
                     }
                 }
             } else {
@@ -522,7 +533,13 @@ fun HealthPlanContent(onBack: () -> Unit,
                     // Credencial existente en edición: guardo cambios
                     showErrors = true
                     if (isNombreValid && isNumeroValid) {
-                        viewModel.cargarCredencial(nombreObraSocial, numeroAfiliado, plan, fechaVencimiento)
+                        viewModel.actualizarCredencial(
+                            credencialActualId,
+                            nombreObraSocial,
+                            numeroAfiliado,
+                            plan,
+                            fechaVencimiento
+                        )
                     }
                 }
             },
@@ -544,6 +561,26 @@ fun HealthPlanContent(onBack: () -> Unit,
                 color = Color.White
             )
         }
+
+        if (!showForm) {
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { showDeleteDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text(
+                    text = "Eliminar credencial",
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+
+             Spacer(modifier = Modifier.height(12.dp))
+        }
         }
     }
 
@@ -563,6 +600,28 @@ fun HealthPlanContent(onBack: () -> Unit,
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Popup de confirmación antes de eliminar una credencial
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar credencial") },
+            text = { Text("¿Estás seguro de que querés eliminar esta credencial? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.eliminarCredencial(credencialActualId)
+                    showDeleteDialog = false
+                }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Cancelar")
                 }
             }
