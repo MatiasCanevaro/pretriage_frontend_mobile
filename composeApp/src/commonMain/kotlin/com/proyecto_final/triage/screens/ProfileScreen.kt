@@ -23,11 +23,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.proyecto_final.triage.components.SelectableOption
 import com.proyecto_final.triage.components.SelectableOptionsGrid
+import com.proyecto_final.triage.network.PerfilResponse
 import com.proyecto_final.triage.network.TokenStorage
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.theme.Spacing
+import com.proyecto_final.triage.viewmodels.ProfileState
+import com.proyecto_final.triage.viewmodels.ProfileViewModel
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.Res
 import triage.composeapp.generated.resources.credential
@@ -37,7 +41,24 @@ class ProfileScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current
+        val viewModel = remember { ProfileViewModel() }
+        val state by viewModel.state.collectAsStateWithLifecycle()
+
+        LaunchedEffect(Unit) {
+            viewModel.cargarPerfil()
+        }
+
         ProfileContent(
+            state = state,
+            onRetry = { viewModel.cargarPerfil() },
+            onEditProfile = { perfil ->
+                navigator?.push(
+                    EditProfileScreen(
+                        perfil = perfil,
+                        onProfileUpdated = { viewModel.cargarPerfil() }
+                    )
+                )
+            },
             onHealthPlan = { navigator?.push(HealthPlanScreen()) },
             onMyStudies = {
                 //TODO
@@ -52,11 +73,34 @@ class ProfileScreen : Screen {
     }
 }
 
+private val perfilDeEjemplo = PerfilResponse(
+    nombre = "Rocio",
+    apellido = "Perez",
+    tipoDocumento = "DNI",
+    numeroDocumento = "42.123.456",
+    fechaNacimiento = "2001-05-15",
+    generoBiologico = "FEMENINO",
+    generoConElQueSeIdentifica = "FEMENINO",
+    email = "rperez@gmail.com",
+    telefono = "11-1234-5678",
+    calle = "Av. Cabildo",
+    alturaDireccion = "1234",
+    piso = "3",
+    codigoPostal = "1428",
+    ciudad = "CABA",
+    provincia = "Buenos Aires",
+    peso = 72.0,
+    alturaPersona = 178
+)
+
 @Preview
 @Composable
 fun ProfilePreview() {
     AppTheme {
         ProfileContent(
+            state = ProfileState.Success(perfilDeEjemplo),
+            onRetry = { },
+            onEditProfile = { },
             onHealthPlan = { },
             onMyStudies = { },
             onLogOut = { },
@@ -67,6 +111,9 @@ fun ProfilePreview() {
 
 @Composable
 fun ProfileContent(
+    state: ProfileState,
+    onRetry: () -> Unit,
+    onEditProfile: (PerfilResponse) -> Unit,
     onHealthPlan: () -> Unit,
     onMyStudies: () -> Unit,
     onLogOut: () -> Unit,
@@ -116,89 +163,240 @@ fun ProfileContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Card de perfil con foto y nombre
+        when (state) {
+            is ProfileState.Loading -> ProfileLoading()
+
+            is ProfileState.Error -> ProfileError(
+                message = state.message,
+                onRetry = onRetry
+            )
+
+            is ProfileState.Success -> {
+                val perfil = state.perfil
+                val placeHolderText = "Sin especificar"
+
+                ProfileHeaderCard(
+                    nombreCompleto = "${perfil.nombre} ${perfil.apellido}"
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Grid de opciones
+                SelectableOptionsGrid(
+                    options = opciones,
+                    selectedOption = null,
+                    onOptionSelected = { }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Campos de información del perfil
+                ProfileField(icon = Icons.Default.Person, label = "Nombre", value = perfil.nombre)
+                ProfileField(icon = Icons.Default.Person, label = "Apellido", value = perfil.apellido)
+                ProfileFieldWithArrow(label = "Tipo de documento", value = perfil.tipoDocumento)
+                ProfileField(icon = Icons.Default.Badge, label = "Nº de documento", value = perfil.numeroDocumento)
+                ProfileField(
+                    icon = Icons.Default.CalendarMonth,
+                    label = "Fecha de nacimiento",
+                    value = formatearFechaNacimiento(perfil.fechaNacimiento ?: placeHolderText)
+                )
+
+                ProfileFieldWithArrow(label = "Sexo", value = perfil.generoBiologico ?: placeHolderText)
+                ProfileFieldWithArrow(label = "Genero", value = perfil.generoConElQueSeIdentifica ?: placeHolderText)
+                ProfileField(
+                    icon =  Icons.Filled.Email,
+                    label = "Correo electrónico",
+                    value = perfil.email ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.Phone,
+                    label = "Teléfono",
+                    value = perfil.telefono ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.Home,
+                    label = "Calle",
+                    value = perfil.calle ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.LocationCity,
+                    label = "Altura",
+                    value = perfil.alturaDireccion ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.LocationCity,
+                    label = "Piso",
+                    value = perfil.piso ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.LocationCity,
+                    label = "Código postal",
+                    value = perfil.codigoPostal ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.Place,
+                    label = "Ciudad",
+                    value = perfil.ciudad ?: placeHolderText
+                )
+                ProfileField(
+                    icon =  Icons.Filled.Map,
+                    label = "Provincia",
+                    value = perfil.provincia ?: placeHolderText
+                )
+
+                ProfileField(
+                    icon = Icons.Default.FitnessCenter,
+                    label = "Peso",
+                    value = perfil.peso?.let {
+                        if (it % 1.0 == 0.0) "${it.toInt().toString()} kg" else "${it.toString()} kg" 
+                    } ?: placeHolderText
+                )
+                
+                ProfileField(
+                    icon = Icons.Default.Height,
+                    label = "Altura",
+                    value = perfil.alturaPersona?.let { "${it} cm" } ?: placeHolderText
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = { onEditProfile(perfil) },
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5BB8D4)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                ) {
+                    Text(
+                        text = "Editar",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileLoading() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun ProfileError(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFD6EAF8)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE5E5)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(140.dp),
-                contentAlignment = Alignment.Center
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    painter = painterResource(Res.drawable.profile),
+                Icon(
+                    imageVector = Icons.Default.Warning,
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    tint = Color(0xFFB3261E)
                 )
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF5BB8D4)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Rocio Pérez",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "No se pudo cargar el perfil",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color(0xFFB3261E)
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFB3261E)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onRetry,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Reintentar", color = Color(0xFFB3261E))
                 }
             }
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Grid de opciones
-        SelectableOptionsGrid(
-            options = opciones,
-            selectedOption = null,
-            onOptionSelected = { }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Campos de información del perfil
-        ProfileField(icon = Icons.Default.Person, label = "Nombre", value = "Rocio")
-        ProfileField(icon = Icons.Default.Person, label = "Apellido", value = "Perez")
-        ProfileFieldWithArrow(label = "Tipo de documento", value = "DNI")
-        ProfileField(icon = Icons.Default.Badge, label = "Nº de documento", value = "42.123.456")
-        ProfileField(icon = Icons.Default.CalendarMonth, label = "Fecha de nacimiento", value = "15/05/2001")
-        ProfileFieldWithArrow(label = "Sexo", value = "Masculino")
-        ProfileFieldWithArrow(label = "Genero", value = "Hombre")
-        ProfileField(icon = Icons.Default.FitnessCenter, label = "Peso", value = "72 kg")
-        ProfileField(icon = Icons.Default.Height, label = "Altura", value = "1.78 m")
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = { },
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5BB8D4)),
+@Composable
+private fun ProfileHeaderCard(nombreCompleto: String) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFD6EAF8)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(140.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "Editar",
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White
+            Image(
+                painter = painterResource(Res.drawable.profile),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
             )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF5BB8D4)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = nombreCompleto,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(24.dp))
+private fun formatearFechaNacimiento(fecha: String): String {
+    val partes = fecha.split("-")
+    if (partes.size != 3) return fecha
+
+    return try {
+        val anio = partes[0].toInt()
+        val mes = partes[1].toInt()
+        val dia = partes[2].toInt()
+        "${dia.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/$anio"
+    } catch (e: NumberFormatException) {
+        fecha
     }
 }
 

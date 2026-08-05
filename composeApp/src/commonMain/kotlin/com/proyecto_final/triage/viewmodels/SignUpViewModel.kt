@@ -18,9 +18,9 @@ class SignUpViewModel : ViewModel() {
             println("REQUEST: $request")
             _state.value = SignUpState.Loading
             val result = register(request)
-            result.onSuccess { token ->
-                println("SUCCESS TOKEN: $token")
-                _state.value = SignUpState.Success(token)
+            result.onSuccess { message ->
+                println("SUCCESS Message: $message")
+                _state.value = SignUpState.Success(message)
             }.onFailure { error ->
                 println("ERROR: ${error.message}")
                 _state.value = SignUpState.Error(error.message ?: "Error desconocido")
@@ -32,6 +32,6 @@ class SignUpViewModel : ViewModel() {
 sealed class SignUpState {
     object Idle : SignUpState()
     object Loading : SignUpState()
-    data class Success(val token: String) : SignUpState()
+    data class Success(val message: String) : SignUpState()
     data class Error(val message: String) : SignUpState()
 }

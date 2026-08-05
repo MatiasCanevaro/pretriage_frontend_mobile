@@ -47,11 +47,13 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.proyecto_final.triage.components.InputTextField
 import com.proyecto_final.triage.config.AppConfig
+import com.proyecto_final.triage.config.DevToken
 import com.proyecto_final.triage.config.Environment
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.SignInState
 import com.proyecto_final.triage.viewmodels.SignInViewModel
 import kotlinx.coroutines.launch
+import com.proyecto_final.triage.network.TokenStorage
 
 class SignInScreen : Screen {
     @Composable
@@ -66,11 +68,13 @@ class SignInScreen : Screen {
             }
         }
 
-        SignInContent(  onForgotPassword = { navigator.push(ForgotPasswordScreen()) },
-                        onSignUp = { navigator.push(SignUpScreen()) },
-                        onSignIn = { navigator.push(HomeScreen()) },
-                        viewModel = viewModel,
-                        state = state)
+        SignInContent(
+            onForgotPassword = { navigator.push(ForgotPasswordScreen()) },
+            onSignUp = { navigator.push(SignUpScreen()) },
+            onSignIn = { navigator.push(HomeScreen()) },
+            viewModel = viewModel,
+            state = state
+        )
     }
 }
 
@@ -89,11 +93,12 @@ fun SignInPreview() {
 }
 
 @Composable
-fun SignInContent( onForgotPassword: () -> Unit,
-                   onSignUp: () -> Unit,
-                   onSignIn: () -> Unit,
-                   viewModel: SignInViewModel,
-                   state: SignInState
+fun SignInContent(
+    onForgotPassword: () -> Unit,
+    onSignUp: () -> Unit,
+    onSignIn: () -> Unit,
+    viewModel: SignInViewModel,
+    state: SignInState
 ) {
     // variables
     var showErrors by remember { mutableStateOf(false) }
@@ -131,9 +136,14 @@ fun SignInContent( onForgotPassword: () -> Unit,
 
         // Correo Electronico
         val isEmailValid = isValidEmail(email)
-        InputTextField( label = "Correo electrónico", value = email, onValueChange = { email = it }, leadingIcon = Icons.Filled.Email,
+        InputTextField(
+            label = "Correo electrónico",
+            value = email,
+            onValueChange = { email = it },
+            leadingIcon = Icons.Filled.Email,
             isError = showErrors && (email.isBlank() || !isEmailValid),
-            errorMessage = if (email.isBlank()) "Este campo es obligatorio" else "Ingresá un correo válido")
+            errorMessage = if (email.isBlank()) "Este campo es obligatorio" else "Ingresá un correo válido"
+        )
         Spacer(modifier = Modifier.height(Spacing.md))
 
         // Contraseña
@@ -180,10 +190,10 @@ fun SignInContent( onForgotPassword: () -> Unit,
         Button(
             onClick = {
                 showErrors = true
-                if(AppConfig.environment == Environment.DEV){
+                if (AppConfig.environment == Environment.DEV) {
                     onSignIn()
-                }
-                else if (email.isNotBlank() && isValidEmail(email) && password.isNotBlank()) {
+                    TokenStorage.saveToken(DevToken.TOKEN, false);
+                } else if (email.isNotBlank() && isValidEmail(email) && password.isNotBlank()) {
                     viewModel.login(email, password, rememberMe)
                 }
             },

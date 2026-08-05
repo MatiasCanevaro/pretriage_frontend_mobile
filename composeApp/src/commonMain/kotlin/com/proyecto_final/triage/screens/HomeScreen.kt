@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import com.proyecto_final.triage.theme.AppTheme
+import com.proyecto_final.triage.network.TokenStorage
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -34,11 +35,18 @@ class HomeScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current
+
+        if (TokenStorage.getToken() == null) {
+            navigator?.push(SignInScreen())
+        } else {
+            println("TOKEN ${TokenStorage.getToken()}")
+        }
+
         HomeContent(
             onEmergency = { },
             onSolicitarAtencion = { navigator?.push(SelectTypeGuardScreen()) },
             onCargarEstudios = { },
-            onMiPerfil = { navigator?.push(ProfileScreen())}
+            onMiPerfil = { navigator?.push(ProfileScreen()) }
         )
     }
 }
@@ -76,14 +84,15 @@ fun HomeContent(
 
     Column(
         modifier = Modifier.fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp)
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
     ) {
         Spacer(modifier = Modifier.height(36.dp))
 
         // HEADER
-        Row(modifier = Modifier.fillMaxWidth(),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(

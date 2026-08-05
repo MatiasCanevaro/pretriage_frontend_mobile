@@ -38,7 +38,8 @@ fun InputTextField(
     isError: Boolean = false,
     errorMessage: String = "Este campo es obligatorio",
     isPassword: Boolean = false,
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    placeholder: String? = null
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     Column(
@@ -95,6 +96,14 @@ fun InputTextField(
                     Icon(
                         imageVector = leadingIcon,
                         contentDescription = null
+                    )
+                }
+            } else null,
+            placeholder = if (placeholder != null) {
+                {
+                    Text(
+                        text = placeholder,
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             } else null,

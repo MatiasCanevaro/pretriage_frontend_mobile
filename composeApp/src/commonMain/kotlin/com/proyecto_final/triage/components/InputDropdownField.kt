@@ -37,7 +37,9 @@ fun InputDropdownField(
     onOptionSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
     isError: Boolean = false,
-    displayMap: Map<String, String> = emptyMap()
+    errorMessage: String = "Este campo es obligatorio",
+    displayMap: Map<String, String> = emptyMap(),
+    placeholder: String? = null
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
 
@@ -64,6 +66,14 @@ fun InputDropdownField(
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.Normal
                 ),
+                placeholder = if (placeholder != null) {
+                    {
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                } else null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
@@ -72,7 +82,7 @@ fun InputDropdownField(
                 supportingText = {
                     if (isError) {
                         Text(
-                            "Este campo es obligatorio",
+                            errorMessage,
                             color = MaterialTheme.colorScheme.error
                         )
                     }

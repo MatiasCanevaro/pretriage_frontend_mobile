@@ -10,17 +10,20 @@ import kotlinx.serialization.Serializable
                             val altura: String*/
 
 @Serializable
-data class RegisterRequest( val nombre: String,
-                            val apellido: String,
-                            val numeroDocumento: String,
-                            val tipoDocumento: String,
-                            val tipoUsuario: String,
-                            val matricula: String? = null,
-                            val email: String,
-                            val password: String
+data class RegisterRequest(
+    val nombre: String,
+    val apellido: String,
+    val numeroDocumento: String,
+    val tipoDocumento: String,
+    val tipoUsuario: String,
+    val email: String,
+    val password: String,
+    val rol: String
 )
+
 @Serializable
 data class RegisterResponse(
     val token: String? = null,
+    val message: String? = null,
     val error: String? = null
 )

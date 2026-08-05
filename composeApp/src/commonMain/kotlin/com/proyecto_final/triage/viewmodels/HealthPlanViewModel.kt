@@ -3,6 +3,8 @@ package com.proyecto_final.triage.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.proyecto_final.triage.network.CredencialRequest
+import com.proyecto_final.triage.network.CredencialUpdateResult
+import com.proyecto_final.triage.network.actualizarCredencial
 import com.proyecto_final.triage.network.cargarCredencial
 import com.proyecto_final.triage.screens.Credencial
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,19 +33,61 @@ class HealthPlanViewModel : ViewModel() {
                 )
             )
 
-            result.onSuccess { mensaje ->
-                _state.value = CredencialState.Success(mensaje)
-                obtenerCredenciales()
-            }.onFailure { error ->
-                _state.value = CredencialState.Error(
-                    error.message ?: "Error desconocido"
+            procesarResultado(result)
+        }
+    }
+
+    fun actualizarCredencial(
+        idCredencial: Long,
+        nombreObraSocial: String,
+        numeroAfiliado: String,
+        plan: String,
+        fechaVencimiento: String
+    ) {
+        viewModelScope.launch {
+            _state.value = CredencialState.Loading
+
+            val result = actualizarCredencial(
+                idCredencial,
+                CredencialRequest(
+                    nombreObraSocial = nombreObraSocial,
+                    numeroAfiliado = numeroAfiliado,
+                    plan = plan,
+                    fechaVencimiento = convertirFechaVencimiento(fechaVencimiento)
                 )
-            }
+            )
+
+            procesarResultado(result)
+        }
+    }
+
+    fun eliminarCredencial(idCredencial: Long) {
+        viewModelScope.launch {
+            _state.value = CredencialState.Loading
+
+            procesarResultado(
+                com.proyecto_final.triage.network.eliminarCredencial(idCredencial)
+            )
         }
     }
 
     fun resetState() {
         _state.value = CredencialState.Idle
+    }
+
+    private fun procesarResultado(result: CredencialUpdateResult) {
+        when (result) {
+            is CredencialUpdateResult.Success -> {
+                _state.value = CredencialState.Success(result.mensaje)
+                obtenerCredenciales()
+            }
+
+            is CredencialUpdateResult.FieldErrors ->
+                _state.value = CredencialState.Error(fieldErrors = result.errors)
+
+            is CredencialUpdateResult.Error ->
+                _state.value = CredencialState.Error(message = result.message)
+        }
     }
 
     fun obtenerCredenciales() {
@@ -72,23 +116,21 @@ sealed class CredencialState {
     object Idle : CredencialState()
     object Loading : CredencialState()
     data class Success(val mensaje: String) : CredencialState()
-    data class Error(val message: String) : CredencialState()
+    data class Error(
+        val message: String? = null,
+        val fieldErrors: Map<String, String> = emptyMap()
+    ) : CredencialState()
 }
 
 fun convertirFechaVencimiento(fecha: String): String {
-    val (mesStr, anioStr) = fecha.split("/")
+    if (fecha.isBlank()) return ""
+    val partes = fecha.split("/")
+    if (partes.size != 2) return ""
 
-    val mes = mesStr.toInt()
-    val anio = 2000 + anioStr.toInt()
+    val mes = partes[0].toIntOrNull() ?: return ""
+    val anio = partes[1].toIntOrNull() ?: return ""
 
-    val esBisiesto = (anio % 4 == 0 && anio % 100 != 0) || (anio % 400 == 0)
+    if (mes !in 1..12) return ""
 
-    val ultimoDia = when (mes) {
-        1, 3, 5, 7, 8, 10, 12 -> 31
-        4, 6, 9, 11 -> 30
-        2 -> if (esBisiesto) 29 else 28
-        else -> throw IllegalArgumentException("Mes inválido")
-    }
-
-    return "${anio.toString().padStart(4, '0')}-${mes.toString().padStart(2, '0')}-${ultimoDia.toString().padStart(2, '0')}"
+    return "${anio.toString().padStart(4, '0')}-${mes.toString().padStart(2, '0')}-01"
 }

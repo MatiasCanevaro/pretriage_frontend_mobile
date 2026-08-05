@@ -1,9 +1,12 @@
 package com.proyecto_final.triage.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -26,8 +29,10 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import com.proyecto_final.triage.components.CommonHeader
+import com.proyecto_final.triage.components.InputMonthYearField
 import com.proyecto_final.triage.components.InputTextField
 import com.proyecto_final.triage.theme.AppTheme
+import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.CredencialState
 import com.proyecto_final.triage.viewmodels.CredencialesState
 import com.proyecto_final.triage.viewmodels.HealthPlanViewModel
@@ -50,7 +55,10 @@ data class Credencial(
     val plan: String,
 
     @SerialName("fechaVencimiento")
-    val fechaVencimiento: String
+    val fechaVencimiento: String,
+
+    @SerialName("id")
+    val idCredencial: Long = 0
 )
 
 class HealthPlanScreen : Screen {
@@ -86,6 +94,7 @@ fun HealthPlanContent(onBack: () -> Unit,
 
     var showErrors by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     // isEditingExisting: si la card actual es una credencial ya cargada,
     // controla si el form está bloqueado (false) o habilitado para editar (true)
@@ -95,6 +104,7 @@ fun HealthPlanContent(onBack: () -> Unit,
     var numeroAfiliado by remember { mutableStateOf("") }
     var plan by remember { mutableStateOf("") }
     var fechaVencimiento by remember { mutableStateOf("") }
+    var credencialActualId by remember { mutableStateOf(0L) }
 
     // OBTENGO LAS CREDENCIALES DEL SERVIDOR
     LaunchedEffect(Unit) {
@@ -109,6 +119,13 @@ fun HealthPlanContent(onBack: () -> Unit,
 
     val state by viewModel.credencialesState.collectAsState()
     val credencialState by viewModel.state.collectAsState()
+
+    val backendFieldErrors =
+        (credencialState as? CredencialState.Error)?.fieldErrors ?: emptyMap()
+
+    val errorGeneral =
+        (credencialState as? CredencialState.Error)?.message
+            ?: (state as? CredencialesState.Error)?.message
 
     val credenciales = when (state) {
         is CredencialesState.Success ->
@@ -132,6 +149,7 @@ fun HealthPlanContent(onBack: () -> Unit,
             fechaVencimiento = ""
 
             showConfirmDialog = false
+            showDeleteDialog = false
             isEditingExisting = false
 
             viewModel.resetState()
@@ -142,18 +160,22 @@ fun HealthPlanContent(onBack: () -> Unit,
 
         isEditingExisting = false
         showErrors = false
+        showDeleteDialog = false
+        viewModel.resetState()
 
         if (pagerState.currentPage < credenciales.size) {
 
             val credencial = credenciales[pagerState.currentPage]
 
+            credencialActualId = credencial.idCredencial
             nombreObraSocial = credencial.nombreObraSocial
             numeroAfiliado = credencial.numeroAfiliado
             plan = credencial.plan
-            fechaVencimiento = credencial.fechaVencimiento
+            fechaVencimiento = formatearFechaParaPicker(credencial.fechaVencimiento)
 
         } else {
 
+            credencialActualId = 0L
             nombreObraSocial = nuevaCredencial.nombreObraSocial
             numeroAfiliado = nuevaCredencial.numeroAfiliado
             plan = nuevaCredencial.plan
@@ -181,8 +203,16 @@ fun HealthPlanContent(onBack: () -> Unit,
         //HEADER
         CommonHeader(title = "Mis Credenciales", onBack = { onBack() })
 
-        //CARROUSEL
-        HorizontalPager(
+        // Contenido desplazable
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+
+            //CARROUSEL
+            HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp)
@@ -255,9 +285,10 @@ fun HealthPlanContent(onBack: () -> Unit,
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = Color.White
                                     )
-                                }
-                            }
-                        }
+}
+
+}
+    }
                     }
                 }
             } else {
@@ -343,7 +374,7 @@ fun HealthPlanContent(onBack: () -> Unit,
                                         )
 
                                         Text(
-                                            text = nuevaCredencial.fechaVencimiento,
+                                            text = formatearVencimientoForm(nuevaCredencial.fechaVencimiento),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = Color.White
                                         )
@@ -415,7 +446,9 @@ fun HealthPlanContent(onBack: () -> Unit,
                         nuevaCredencial = nuevaCredencial.copy(nombreObraSocial = it)
                     }
                 },
-                isError = showErrors && !isNombreValid
+                isError = (showErrors && !isNombreValid) || backendFieldErrors.containsKey("nombreObraSocial"),
+                errorMessage = backendFieldErrors["nombreObraSocial"] ?: "Este campo es obligatorio",
+                placeholder = "Seleccioná una obra social"
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -431,8 +464,10 @@ fun HealthPlanContent(onBack: () -> Unit,
                 },
                 enabled = fieldsEnabled,
                 keyboardType = KeyboardType.Number,
-                isError = showErrors && !isNumeroValid,
-                errorMessage = if (numeroAfiliado.isBlank()) "Este campo es obligatorio" else "Mínimo 6 caracteres"
+                placeholder = "Ingresá tu número",
+                isError = (showErrors && !isNumeroValid) || backendFieldErrors.containsKey("numeroAfiliado"),
+                errorMessage = backendFieldErrors["numeroAfiliado"]
+                    ?: if (numeroAfiliado.isBlank()) "Este campo es obligatorio" else "Mínimo 6 caracteres"
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -448,12 +483,14 @@ fun HealthPlanContent(onBack: () -> Unit,
                         nuevaCredencial = nuevaCredencial.copy(plan = it)
                     }
                 },
-                isError = showErrors && plan.isBlank()
+                isError = (showErrors && plan.isBlank()) || backendFieldErrors.containsKey("plan"),
+                errorMessage = backendFieldErrors["plan"] ?: "Este campo es obligatorio",
+                placeholder = "Seleccioná un plan"
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            InputTextField(
+            InputMonthYearField(
                 label = "Fecha de Vencimiento",
                 value = fechaVencimiento,
                 onValueChange = {
@@ -463,12 +500,23 @@ fun HealthPlanContent(onBack: () -> Unit,
                     }
                 },
                 enabled = fieldsEnabled,
-                isError = showErrors && fechaVencimiento.isBlank(),
-                errorMessage = if (fechaVencimiento.isBlank()) "Este campo es obligatorio" else ""
+                isError = (showErrors && fechaVencimiento.isBlank()) || backendFieldErrors.containsKey("fechaVencimiento"),
+                errorMessage = backendFieldErrors["fechaVencimiento"]
+                    ?: if (fechaVencimiento.isBlank()) "Este campo es obligatorio" else "",
+                placeholder = "MM/AAAA"
             )
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        errorGeneral?.let { mensaje ->
+            Text(
+                text = mensaje,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Spacing.sm)
+            )
+        }
 
         Button(
             onClick = {
@@ -485,7 +533,13 @@ fun HealthPlanContent(onBack: () -> Unit,
                     // Credencial existente en edición: guardo cambios
                     showErrors = true
                     if (isNombreValid && isNumeroValid) {
-                        viewModel.cargarCredencial(nombreObraSocial, numeroAfiliado, plan, fechaVencimiento)
+                        viewModel.actualizarCredencial(
+                            credencialActualId,
+                            nombreObraSocial,
+                            numeroAfiliado,
+                            plan,
+                            fechaVencimiento
+                        )
                     }
                 }
             },
@@ -506,6 +560,27 @@ fun HealthPlanContent(onBack: () -> Unit,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
+        }
+
+        if (!showForm) {
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { showDeleteDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text(
+                    text = "Eliminar credencial",
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+
+             Spacer(modifier = Modifier.height(12.dp))
+        }
         }
     }
 
@@ -530,6 +605,28 @@ fun HealthPlanContent(onBack: () -> Unit,
             }
         )
     }
+
+    // Popup de confirmación antes de eliminar una credencial
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar credencial") },
+            text = { Text("¿Estás seguro de que querés eliminar esta credencial? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.eliminarCredencial(credencialActualId)
+                    showDeleteDialog = false
+                }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 /**
@@ -545,7 +642,9 @@ private fun DropdownSelectField(
     options: List<String>,
     enabled: Boolean,
     onValueChange: (String) -> Unit,
-    isError: Boolean = false
+    isError: Boolean = false,
+    errorMessage: String = "Este campo es obligatorio",
+    placeholder: String? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -576,6 +675,22 @@ private fun DropdownSelectField(
                     disabledTextColor = Color(0xFF333333),
                     disabledTrailingIconColor = Color(0xFF9E9E9E)
                 ),
+                placeholder = if (placeholder != null) {
+                    {
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                } else null,
+                supportingText = {
+                    if (isError) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor()
@@ -608,4 +723,23 @@ private fun formatearVencimiento(fecha: String): String {
     } catch (e: Exception) {
         fecha
     }
+}
+
+private fun formatearFechaParaPicker(fecha: String): String {
+    val partes = fecha.split("-")
+    if (partes.size != 3) return fecha
+
+    return try {
+        val anio = partes[0].toInt()
+        val mes = partes[1].toInt()
+        "${mes.toString().padStart(2, '0')}/$anio"
+    } catch (e: NumberFormatException) {
+        fecha
+    }
+}
+
+private fun formatearVencimientoForm(fecha: String): String {
+    val partes = fecha.split("/")
+    if (partes.size != 2) return fecha
+    return "${partes[0]}/${partes[1].takeLast(2)}"
 }

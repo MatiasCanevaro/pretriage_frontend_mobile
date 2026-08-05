@@ -14,6 +14,32 @@ if (localPropertiesFile.exists()) {
     )
 }
 
+val devToken: String = localProperties.getProperty("DEV_TOKEN")?.trim() ?: ""
+
+val generateDevToken = tasks.register("generateDevToken") {
+    val outputDir = layout.buildDirectory.dir("generated/devToken")
+    val tokenValue = devToken
+    inputs.property("devToken", tokenValue)
+    outputs.dir(outputDir)
+    doLast {
+        val file = outputDir.get().file("com/proyecto_final/triage/config/DevToken.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(
+            """
+            package com.proyecto_final.triage.config
+
+            object DevToken {
+                const val TOKEN = "$tokenValue"
+            }
+            """.trimIndent()
+        )
+    }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompileTool>().configureEach {
+    dependsOn(generateDevToken)
+}
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -78,6 +104,8 @@ kotlin {
         }
     }
 }
+
+kotlin.sourceSets.commonMain.get().kotlin.srcDir(layout.buildDirectory.dir("generated/devToken"))
 
 android {
     namespace = "com.proyecto_final.triage"

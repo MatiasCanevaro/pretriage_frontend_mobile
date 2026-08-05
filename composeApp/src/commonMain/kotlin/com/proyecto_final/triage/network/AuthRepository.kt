@@ -17,9 +17,10 @@ suspend fun register(request: RegisterRequest): Result<String> {
         println("DESPUES DEL POST: ${response.status}")
         val body = response.body<RegisterResponse>()
         println("BODY: $body")
-        if (response.status == HttpStatusCode.OK && body.token != null) {
-            Result.success(body.token)
+        if (response.status == HttpStatusCode.OK && body.message != null) {
+            Result.success(body.message)
         } else {
+            println("ERROR EN REGISTER: status: ${response.status} ${body.error}")
             Result.failure(Exception(body.error ?: "Error al registrar"))
         }
     } catch (e: Exception) {
