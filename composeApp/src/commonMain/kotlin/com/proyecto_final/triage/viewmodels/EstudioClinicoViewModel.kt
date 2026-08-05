@@ -9,6 +9,7 @@ import com.proyecto_final.triage.network.obtenerEstudios
 import com.proyecto_final.triage.network.subirEstudio
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class StudiesViewModel : ViewModel() {
@@ -21,6 +22,17 @@ class StudiesViewModel : ViewModel() {
 
     private val _eliminando = MutableStateFlow(false)
     val eliminando: StateFlow<Boolean> = _eliminando
+
+    private val _mensajeExito = MutableStateFlow<String?>(null)
+    val mensajeExito: StateFlow<String?> = _mensajeExito.asStateFlow()
+
+    fun notificarEstudioAgregado(nombreTipo: String) {
+        _mensajeExito.value = "Se agregó \"$nombreTipo\" correctamente"
+    }
+
+    fun limpiarMensajeExito() {
+        _mensajeExito.value = null
+    }
 
     fun cargarEstudios() {
         viewModelScope.launch {

@@ -62,7 +62,10 @@ class AddStudyScreen : Screen {
                     fileName = fileName,
                     tipoArchivo = tipo,
                     descripcion = descripcion,
-                    onSuccess = { navigator?.pop() },
+                    onSuccess = {
+                        viewModel.notificarEstudioAgregado(tipo)
+                        navigator?.pop()
+                    },
                     onError = { /* opcional: snackbar */ }
                 )
             },
