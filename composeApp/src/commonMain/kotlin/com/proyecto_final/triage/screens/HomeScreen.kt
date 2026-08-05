@@ -45,6 +45,7 @@ class HomeScreen : Screen {
         HomeContent(
             onEmergency = { },
             onSolicitarAtencion = { navigator?.push(SelectTypeGuardScreen()) },
+            onChat = { navigator?.push(ChatScreen()) },
             onCargarEstudios = { },
             onMiPerfil = { navigator?.push(ProfileScreen()) }
         )
@@ -58,6 +59,7 @@ fun HomePreview() {
         HomeContent(
             onEmergency = { },
             onSolicitarAtencion = { },
+            onChat = { },
             onCargarEstudios = { },
             onMiPerfil = { }
         )
@@ -68,6 +70,7 @@ fun HomePreview() {
 fun HomeContent(
     onEmergency: () -> Unit,
     onSolicitarAtencion: () -> Unit,
+    onChat: () -> Unit,
     onCargarEstudios: () -> Unit,
     onMiPerfil: () -> Unit
 ) {
@@ -170,6 +173,44 @@ fun HomeContent(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Elegí el hospital según su tiempo de espera y describí tus síntomas",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Card - Chat interactivo (opcional)
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onChat() },
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Chat,
+                    contentDescription = null,
+                    tint = Color(0xFF5BB8D4),
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Chat interactivo",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Describí tus síntomas y recibí una prioridad triage estimada",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
