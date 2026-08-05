@@ -14,7 +14,9 @@ val httpClient = HttpClient {
         json(Json { ignoreUnknownKeys = true })
     }
     install(HttpTimeout) {
-        requestTimeoutMillis = 10000
+        requestTimeoutMillis = 60_000
+        connectTimeoutMillis = 15_000
+        socketTimeoutMillis = 60_000
     }
     defaultRequest {
         TokenStorage.getToken()?.let { token ->
