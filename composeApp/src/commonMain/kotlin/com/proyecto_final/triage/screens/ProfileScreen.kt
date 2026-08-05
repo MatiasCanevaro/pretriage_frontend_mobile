@@ -39,9 +39,7 @@ class ProfileScreen : Screen {
         val navigator = LocalNavigator.current
         ProfileContent(
             onHealthPlan = { navigator?.push(HealthPlanScreen()) },
-            onMyStudies = {
-                //TODO
-            },
+            onMyStudies = { navigator?.push(MyStudiesScreen()) },
             onLogOut = {
                 TokenStorage.clearToken()
                 navigator?.popUntilRoot()
