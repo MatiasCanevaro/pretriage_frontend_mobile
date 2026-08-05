@@ -35,8 +35,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import com.proyecto_final.triage.components.CommonHeader
-import com.proyecto_final.triage.components.HeaderAlignment
 import com.proyecto_final.triage.components.InfoBanner
 import com.proyecto_final.triage.components.InputDropdownField
 import com.proyecto_final.triage.components.InputTextField
@@ -152,13 +150,10 @@ fun SignUpContent(onBack: () -> Unit, viewModel: SignUpViewModel, state: SignUpS
                 2 -> "Información personal"
                 else -> "Información de salud"
             },
-            subtitle = when (currentStep) {
-                1 -> "Datos de acceso"
-                else -> "Contanos un poco sobre vos"
-            },
-            alignment = HeaderAlignment.CENTER,
-            showLogo = true,
-            onBack = { if (currentStep > 1) currentStep-- else onBack() }
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
         )
 
         Text(
