@@ -150,7 +150,9 @@ fun ChatContent(
             if (state.mensajes.isEmpty() && state.iniciando) {
                 item {
                     Box(
-                        modifier = Modifier.fillParentMaxSize(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
