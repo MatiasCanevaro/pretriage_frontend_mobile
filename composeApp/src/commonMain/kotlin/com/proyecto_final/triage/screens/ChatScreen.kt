@@ -68,6 +68,11 @@ fun ChatContent(
     var mostrarExito by remember { mutableStateOf(false) }
     val listaState = rememberLazyListState()
 
+    // El InfoBanner se muestra hasta que el usuario envía su primer mensaje.
+    val mostrarInfo = state.mensajes.none { !esAutorBot(it.autor) }
+    // Offset de items fijos antes de los mensajes: header + (banner cuando está visible)
+    val offsetMensajes = if (mostrarInfo) 2 else 1
+
     LaunchedEffect(Unit) {
         viewModel.iniciar()
     }
@@ -75,7 +80,7 @@ fun ChatContent(
     // Al enviar un mensaje: llevo la vista al mensaje recién agregado.
     LaunchedEffect(state.enviando) {
         if (state.enviando && state.mensajes.isNotEmpty()) {
-            scrollAlFinal(listaState, state.mensajes.size - 1)
+            scrollAlFinal(listaState, offsetMensajes + state.mensajes.size - 1)
         }
     }
 
@@ -88,7 +93,7 @@ fun ChatContent(
             val cercaDelFinal = ultimoVisible >= listaState.layoutInfo.totalItemsCount - 2
             if (!scrollInicialHecho || cercaDelFinal) {
                 scrollInicialHecho = true
-                scrollAlFinal(listaState, state.mensajes.size - 1)
+                scrollAlFinal(listaState, offsetMensajes + state.mensajes.size - 1)
             }
         }
     }
@@ -105,11 +110,11 @@ fun ChatContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .safeDrawingPadding()
+            .imePadding()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp)
     ) {
-        CommonHeader(title = "Chat interactivo", onBack = { onBack() })
-
         // Error al iniciar el chat
         if (state.error != null && state.chatId == null) {
             ErrorBanner(
@@ -129,12 +134,35 @@ fun ChatContent(
                 .weight(1f),
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            if (state.mensajes.isEmpty() && !state.iniciando) {
+            item {
+                CommonHeader(title = "Chat interactivo", onBack = { onBack() })
+            }
+
+            if (mostrarInfo) {
                 item {
                     InfoBanner(
                         text = "Describí tus síntomas por escrito y el asistente estimará una prioridad de atención."
                     )
                     Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+
+            if (state.mensajes.isEmpty() && state.iniciando) {
+                item {
+                    Box(
+                        modifier = Modifier.fillParentMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Cargando chat...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
