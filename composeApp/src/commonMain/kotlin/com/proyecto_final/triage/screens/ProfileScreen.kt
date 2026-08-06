@@ -60,9 +60,7 @@ class ProfileScreen : Screen {
                 )
             },
             onHealthPlan = { navigator?.push(HealthPlanScreen()) },
-            onMyStudies = {
-                //TODO
-            },
+            onMyStudies = { navigator?.push(MyStudiesScreen()) },
             onLogOut = {
                 TokenStorage.clearToken()
                 navigator?.popUntilRoot()
