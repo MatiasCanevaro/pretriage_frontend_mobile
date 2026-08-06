@@ -3,6 +3,7 @@ package com.proyecto_final.triage.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -71,10 +72,24 @@ fun ChatContent(
         viewModel.iniciar()
     }
 
-    // Auto-scroll: me mantengo al final de la conversación cuando hay mensajes nuevos
-    LaunchedEffect(state.mensajes.size, state.enviando) {
+    // Al enviar un mensaje: llevo la vista al mensaje recién agregado.
+    LaunchedEffect(state.enviando) {
+        if (state.enviando && state.mensajes.isNotEmpty()) {
+            scrollAlFinal(listaState, state.mensajes.size - 1)
+        }
+    }
+
+    // Al recibir mensajes: solo bajo al final si el usuario ya está cerca del fondo
+    // (o en la primera carga del chat). Si está leyendo histórico, la vista no se mueve.
+    var scrollInicialHecho by remember { mutableStateOf(false) }
+    LaunchedEffect(state.mensajes.size) {
         if (state.mensajes.isNotEmpty()) {
-            listaState.animateScrollToItem(state.mensajes.size - 1)
+            val ultimoVisible = listaState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            val cercaDelFinal = ultimoVisible >= listaState.layoutInfo.totalItemsCount - 2
+            if (!scrollInicialHecho || cercaDelFinal) {
+                scrollInicialHecho = true
+                scrollAlFinal(listaState, state.mensajes.size - 1)
+            }
         }
     }
 
@@ -124,7 +139,10 @@ fun ChatContent(
             }
 
             itemsIndexed(state.mensajes) { index, mensaje ->
-                BurbujaDeMensaje(mensaje)
+                BurbujaDeMensaje(
+                    mensaje = mensaje,
+                    noEnviado = state.mensajesNoEnviados.contains(mensaje.contenido)
+                )
                 if (index == state.mensajes.size - 1) {
                     Spacer(modifier = Modifier.height(4.dp))
                 }
@@ -268,7 +286,8 @@ fun ChatContent(
 @Composable
 private fun BurbujaDeMensaje(
     mensaje: ChatMensaje,
-    escribiendo: Boolean = false
+    escribiendo: Boolean = false,
+    noEnviado: Boolean = false
 ) {
     val esDelBot = esAutorBot(mensaje.autor) || escribiendo
 
@@ -318,9 +337,18 @@ private fun BurbujaDeMensaje(
         mensaje.fechaHoraEnvio?.takeIf { it.isNotBlank() }?.let { hora ->
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = hora,
+                text = formatearFechaHora(hora),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (noEnviado) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "No enviado",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error
             )
         }
     }
@@ -423,4 +451,27 @@ private fun CardAtencionEstimada(atencion: AtencionEstimada) {
             }
         }
     }
+}
+
+// Baja al final de la lista. Con mucha distancia usa scroll instantáneo para
+// evitar animaciones largas que interfieren con el gesto del usuario.
+private suspend fun scrollAlFinal(listaState: LazyListState, target: Int) {
+    val distancia = target - listaState.firstVisibleItemIndex
+    if (distancia > 20) {
+        listaState.scrollToItem(target)
+    } else {
+        listaState.animateScrollToItem(target)
+    }
+}
+
+// Formateo simple: "2024-06-15T14:30:00Z" -> "15/06/2024 14:30"
+private fun formatearFechaHora(fechaHora: String): String {
+    val partes = fechaHora.replace("T", " ").substringBeforeLast(":").split("-")
+    
+    val anio= partes[0]
+    val mes = partes[1]
+    val diaHora = partes[2]
+    val partesDiaHora = diaHora.split(" ")
+
+    return "${partesDiaHora[0]}/${mes}/${anio} ${partesDiaHora[1]}"
 }

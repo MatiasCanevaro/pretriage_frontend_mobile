@@ -11,12 +11,17 @@ import com.proyecto_final.triage.network.obtenerChat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 data class ChatUiState(
     val chatId: Long? = null,
     val iniciando: Boolean = false,
     val enviando: Boolean = false,
     val mensajes: List<ChatMensaje> = emptyList(),
+    val mensajesNoEnviados: Set<String> = emptySet(),
     val finalizado: Boolean = false,
     val borrador: String = "",
     val atencionEstimada: AtencionEstimada? = null,
@@ -108,12 +113,32 @@ class ChatViewModel : ViewModel() {
         val contenido = _state.value.borrador
         if (chatId == null || contenido.isBlank() || _state.value.enviando) return
 
-        // Conservo el borrador durante todo el envío: solo se limpia si la API
-        // confirma que el mensaje fue recibido.
+        // El mensaje del paciente se muestra al instante (actualización optimista),
+        // con la hora local para que la burbuja la muestre mientras llega la respuesta.
+        // Si es un reintento de un mensaje fallido, se reutiliza la burbuja existente
+        // y solo se actualiza su hora.
+        val esReintento = _state.value.mensajesNoEnviados.contains(contenido)
+        val hora = fechaHoraLocal()
+        val mensajesActualizados = if (esReintento) {
+            _state.value.mensajes.mapIndexed { index, mensaje ->
+                if (index == _state.value.mensajes.lastIndex && mensaje.contenido == contenido) {
+                    mensaje.copy(fechaHoraEnvio = hora)
+                } else {
+                    mensaje
+                }
+            }
+        } else {
+            _state.value.mensajes +
+                ChatMensaje(contenido = contenido, autor = "PACIENTE", fechaHoraEnvio = hora)
+        }
+
         _state.value = _state.value.copy(
             enviando = true,
             error = null,
-            envioExitoso = null
+            envioExitoso = null,
+            borrador = "",
+            mensajesNoEnviados = _state.value.mensajesNoEnviados - contenido,
+            mensajes = mensajesActualizados
         )
 
         viewModelScope.launch {
@@ -122,12 +147,9 @@ class ChatViewModel : ViewModel() {
                     println("CHAT RESPUESTA: ${respuesta.respuesta}")
                     _state.value = _state.value.copy(
                         enviando = false,
-                        borrador = "",
                         envioExitoso = true,
                         error = null,
-                        mensajes = _state.value.mensajes +
-                            ChatMensaje(contenido = contenido, autor = "PACIENTE") +
-                            respuesta.respuesta,
+                        mensajes = _state.value.mensajes + respuesta.respuesta,
                         atencionEstimada = respuesta.atencionEstimada ?: _state.value.atencionEstimada
                     )
                 }
@@ -136,7 +158,9 @@ class ChatViewModel : ViewModel() {
                     _state.value = _state.value.copy(
                         enviando = false,
                         envioExitoso = false,
-                        error = "No se pudo enviar el mensaje. Verificá tu conexión e intentá de nuevo."
+                        error = "No se pudo enviar el mensaje. Verificá tu conexión e intentá de nuevo.",
+                        mensajesNoEnviados = _state.value.mensajesNoEnviados + contenido,
+                        borrador = contenido
                     )
                 }
         }
@@ -144,5 +168,15 @@ class ChatViewModel : ViewModel() {
 
     fun limpiarError() {
         _state.value = _state.value.copy(error = null)
+    }
+
+    // Hora local con el mismo formato que envía el backend ("2026-08-06T14:30:00")
+    // para que formatearFechaHora la renderice sin cambios.
+    @OptIn(ExperimentalTime::class)
+    private fun fechaHoraLocal(): String {
+        val ahora = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val hora = ahora.hour.toString().padStart(2, '0')
+        val minuto = ahora.minute.toString().padStart(2, '0')
+        return "${ahora.date}T$hora:$minuto:00"
     }
 }
