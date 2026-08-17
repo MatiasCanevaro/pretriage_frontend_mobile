@@ -1,5 +1,6 @@
-package com.proyecto_final.triage.network
+package com.proyecto_final.triage.network.auth
 
+import com.proyecto_final.triage.network.httpClient
 import com.proyecto_final.triage.config.AppConfig
 import io.ktor.client.request.*
 import io.ktor.http.*

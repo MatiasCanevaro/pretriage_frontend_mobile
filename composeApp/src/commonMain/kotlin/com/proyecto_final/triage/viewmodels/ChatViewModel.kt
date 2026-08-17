@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.proyecto_final.triage.network.AtencionEstimada
 import com.proyecto_final.triage.network.ChatMensaje
-import com.proyecto_final.triage.network.ChatStorage
+import com.proyecto_final.triage.storage.ChatStorage
 import com.proyecto_final.triage.network.enviarMensaje
 import com.proyecto_final.triage.network.iniciarChat
 import com.proyecto_final.triage.network.obtenerChat

@@ -35,7 +35,6 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
         val navigator = LocalNavigator.current
         val viewModel = remember { HospitalesViewModel() }
         val state = viewModel.state
-        val hospitalSeleccionado = viewModel.hospitalSeleccionado
 
         var selectedHospital by remember { mutableStateOf<Hospital?>(null) }
 
@@ -45,9 +44,8 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
             viewModel.buscarHospitalesCercanos(latitud = lat, longitud = lon, codigoEspecialidad = type)
         }
 
-        // VUELVO A HOME SI ELIJO UN HOSPITAL
-        LaunchedEffect(hospitalSeleccionado) {
-            if (hospitalSeleccionado) {
+        LaunchedEffect(viewModel.hospitalSeleccionado) {
+            if (viewModel.hospitalSeleccionado) {
                 navigator?.popUntilRoot()
             }
         }
@@ -80,15 +78,14 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
                                    selectedHospital = selectedHospital,
                                    onBack = { navigator?.pop() },
                                    onHospitalSelected = { hospital -> selectedHospital = hospital },
-                                   onContinue = { selectedHospital?.let { hospital ->
-                                                    navigator?.push(RutasHospitalScreen(
-                                                                            hospital = hospital,
-                                                                            ubicacion = ubicacion,
-                                                                            codigoEspecialidad = type
-                                                        )
-                                                    )
-                                                 }
-                                   }
+                                   onContinue = {
+                                        selectedHospital?.let { hospital ->
+                                            viewModel.seleccionarHospital(
+                                                hospital = hospital,
+                                                codigoEspecialidad = type
+                                            )
+                                        }
+                                    }
                 )
             }
         }

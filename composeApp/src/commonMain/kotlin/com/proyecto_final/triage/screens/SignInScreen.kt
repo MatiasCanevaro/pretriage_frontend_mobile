@@ -53,7 +53,7 @@ import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.SignInState
 import com.proyecto_final.triage.viewmodels.SignInViewModel
 import kotlinx.coroutines.launch
-import com.proyecto_final.triage.network.TokenStorage
+import com.proyecto_final.triage.storage.TokenStorage
 
 class SignInScreen : Screen {
     @Composable

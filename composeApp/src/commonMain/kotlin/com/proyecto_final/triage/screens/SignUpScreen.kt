@@ -39,7 +39,7 @@ import com.proyecto_final.triage.components.InfoBanner
 import com.proyecto_final.triage.components.InputDropdownField
 import com.proyecto_final.triage.components.InputTextField
 import com.proyecto_final.triage.components.ProgressBar
-import com.proyecto_final.triage.network.RegisterRequest
+import com.proyecto_final.triage.network.auth.RegisterRequest
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.SignUpState
 import com.proyecto_final.triage.viewmodels.SignUpViewModel

@@ -13,16 +13,26 @@ class HomeViewModel : ViewModel() {
     var state by mutableStateOf<HomeState>(HomeState.Loading)
         private set
 
+    val tieneHospitalSeleccionado: Boolean
+        get() {
+            val estado = (state as? HomeState.Success)
+                ?.estado
+                ?.estadoConsulta
+
+            return estado == "HOSPITAL_SELECCIONADO" ||
+                    estado == "PRETRIAGE_EN_PROCESO" ||
+                    estado == "PRETRIAGE_FINALIZADO"
+        }
+
     fun cargarEstadoConsulta() {
 
         viewModelScope.launch {
 
             state = HomeState.Loading
 
-            val resultado = obtenerEstadoConsulta()
-
-            resultado
+            obtenerEstadoConsulta()
                 .onSuccess { estado ->
+
                     println("===== ESTADO CONSULTA =====")
                     println("Consulta ID: ${estado.consultaId}")
                     println("Estado: ${estado.estadoConsulta}")
@@ -34,8 +44,10 @@ class HomeViewModel : ViewModel() {
                     state = HomeState.Success(estado)
                 }
                 .onFailure { error ->
+
                     state = HomeState.Error(
-                        error.message ?: "No se pudo obtener el estado de la consulta."
+                        error.message
+                            ?: "No se pudo obtener el estado de la consulta."
                     )
                 }
         }

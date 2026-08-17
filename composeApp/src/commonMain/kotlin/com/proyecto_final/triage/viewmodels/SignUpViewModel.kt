@@ -2,11 +2,11 @@ package com.proyecto_final.triage.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.proyecto_final.triage.network.RegisterRequest
+import com.proyecto_final.triage.network.auth.RegisterRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import com.proyecto_final.triage.network.register
+import com.proyecto_final.triage.network.auth.register
 
 class SignUpViewModel : ViewModel() {
 

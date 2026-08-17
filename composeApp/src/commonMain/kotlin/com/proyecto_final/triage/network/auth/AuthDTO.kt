@@ -1,13 +1,18 @@
-package com.proyecto_final.triage.network
+package com.proyecto_final.triage.network.auth
 
 import kotlinx.serialization.Serializable
 
-/*TODO: Faltan los siguientes campos
-                            val fechaNacimiento: String,
-                            val genero: String,
-                            val sexo: String,
-                            val peso: String,
-                            val altura: String*/
+@Serializable
+data class LoginRequest(
+    val email: String,
+    val password: String
+)
+
+@Serializable
+data class LoginResponse(
+    val token: String? = null,
+    val error: String? = null
+)
 
 @Serializable
 data class RegisterRequest(

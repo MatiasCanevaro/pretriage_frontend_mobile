@@ -4,12 +4,12 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class EstadoConsultaPacienteDTO(
-    val consultaId: Long,
-    val estadoConsulta: EstadoConsulta,
-    val estadoEntradaCola: EstadoEntradaCola?,
-    val tipoPausa: TipoPausaCola?,
-    val fechaHoraLimiteRespuesta: String?,
-    val tiempoEstimadoAtencion: TiempoEstimadoAtencionResponse?
+    val consultaId: Long? = null,
+    val estadoConsulta: String? = null,
+    val estadoEntradaCola: String? = null,
+    val tipoPausa: String? = null,
+    val fechaHoraLimiteRespuesta: String? = null,
+    val tiempoEstimadoAtencion: TiempoEstimadoAtencionResponse? = null
 )
 
 @Serializable

@@ -1,4 +1,4 @@
-package com.proyecto_final.triage.network
+package com.proyecto_final.triage.storage
 
 import android.content.Context
 import androidx.core.content.edit

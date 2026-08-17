@@ -7,6 +7,8 @@ import com.proyecto_final.triage.network.obtenerTiempoArriboHospital
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
+import com.proyecto_final.triage.network.elegirHospital
+import com.proyecto_final.triage.screens.Hospital
 import kotlinx.coroutines.launch
 
 
@@ -15,6 +17,9 @@ class RutasHospitalViewModel : ViewModel() {
     var state by mutableStateOf<RutasHospitalState>(
         RutasHospitalState.Loading
     )
+        private set
+
+    var hospitalSeleccionado by mutableStateOf(false)
         private set
 
     fun cargarRutas(
@@ -64,6 +69,34 @@ class RutasHospitalViewModel : ViewModel() {
                         error.message
                             ?: "No pudimos obtener las rutas al hospital."
                     )
+                }
+        }
+    }
+
+    fun seleccionarHospital(
+        hospital: Hospital,
+        codigoEspecialidad: String
+    ) {
+        println("HOSPITAL SELECCIONADO: ${hospital.nombre}")
+        println("PLACE ID: ${hospital.placeId}")
+        println("ESPECIALIDAD: $codigoEspecialidad")
+
+        viewModelScope.launch {
+
+            val placeId = hospital.placeId
+                ?: return@launch
+
+            val resultado = elegirHospital(
+                placeId = placeId,
+                codigoEspecialidad = codigoEspecialidad
+            )
+
+            resultado
+                .onSuccess {
+                    hospitalSeleccionado = true
+                }
+                .onFailure {
+                    // Error
                 }
         }
     }
