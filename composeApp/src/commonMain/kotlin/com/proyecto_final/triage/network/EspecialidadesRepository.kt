@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 
 private val json = Json { ignoreUnknownKeys = true }
 
-suspend fun obtenerEspecialidades(): Result<List<EspecialidadResponse>> {
+suspend fun obtenerEspecialidades(): Result<List<EspecialidadMedicaDTO>> {
     return try {
 
         val response = httpClient.get("${AppConfig.baseUrl}/api/especialidades")
@@ -18,7 +18,7 @@ suspend fun obtenerEspecialidades(): Result<List<EspecialidadResponse>> {
         println("ESPECIALIDADES BODY: $body")
 
         if (response.status == HttpStatusCode.OK) {
-            val especialidades = json.decodeFromString<List<EspecialidadResponse>>(body)
+            val especialidades = json.decodeFromString<List<EspecialidadMedicaDTO>>(body)
             Result.success(especialidades)
         } else {
             Result.failure(

@@ -1,81 +1,74 @@
 package com.proyecto_final.triage.viewmodels
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.proyecto_final.triage.network.HospitalResponse
-import com.proyecto_final.triage.network.TiempoEstimadoArriboHospitalResponse
+import com.proyecto_final.triage.network.HospitalCercanoDTO
+import com.proyecto_final.triage.network.elegirHospital
 import com.proyecto_final.triage.network.obtenerHospitalesCercanos
-import com.proyecto_final.triage.network.obtenerTiempoArriboHospital
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.proyecto_final.triage.screens.Hospital
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
-import kotlinx.datetime.LocalTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
-
-data class HospitalConArribo(
-    val hospital: HospitalResponse,
-    val arribo: TiempoEstimadoArriboHospitalResponse?
-)
 
 class HospitalesViewModel : ViewModel() {
 
-    private val _state = MutableStateFlow<HospitalesState>(HospitalesState.Loading)
-    val state: StateFlow<HospitalesState> = _state
+    var state by mutableStateOf<HospitalesState>(
+        HospitalesState.Loading
+    )
+        private set
 
-    // TODO: reemplazar por el transporte que elija el usuario cuando exista ese selector en la UI
-    private val transporteDefault = "transporte-publico"
+    var hospitalSeleccionado by mutableStateOf(false)
+        private set
 
-    fun cargarHospitalesCercanos(
+    fun buscarHospitalesCercanos(
         latitud: Double,
         longitud: Double,
-        codigoEspecialidad: String
+        codigoEspecialidad: String,
+        transporte: String = "transporte-publico"
     ) {
         viewModelScope.launch {
-            _state.value = HospitalesState.Loading
 
-            val resultHospitales = obtenerHospitalesCercanos(latitud, longitud, codigoEspecialidad)
+            state = HospitalesState.Loading
 
-            resultHospitales
-                .onSuccess { hospitales ->
-                    // Por cada hospital, pedimos su tiempo de arribo en paralelo (no secuencial)
-                    val conArribo = hospitales.map { hospital ->
-                        async {
-                            val resultArribo = obtenerTiempoArriboHospital(
-                                idHospital = hospital.idHospital,
-                                transporte = transporteDefault,
-                                latitud = latitud,
-                                longitud = longitud
-                            )
-                            HospitalConArribo(
-                                hospital = hospital,
-                                arribo = resultArribo.getOrNull()?.firstOrNull()
-                            )
-                        }
-                    }.awaitAll()
+            val resultado = obtenerHospitalesCercanos(
+                latitud = latitud,
+                longitud = longitud,
+                codigoEspecialidad = codigoEspecialidad,
+                transporte = transporte
+            )
 
-                    _state.value = HospitalesState.Success(conArribo)
-                }
-                .onFailure { error ->
-                    _state.value = HospitalesState.Error(error.message ?: "Error desconocido")
+            resultado.onSuccess { hospitales -> state = HospitalesState.Success(hospitales) }
+                     .onFailure { state = HospitalesState.Error("No pudimos cargar los hospitales cercanos.")
                 }
         }
     }
-}
 
-sealed class HospitalesState {
-    object Loading : HospitalesState()
-    data class Success(val hospitales: List<HospitalConArribo>) : HospitalesState()
-    data class Error(val message: String) : HospitalesState()
-}
+    fun seleccionarHospital(
+        hospital: Hospital,
+        codigoEspecialidad: String
+    ) {
+        println("HOSPITAL SELECCIONADO: ${hospital.nombre}")
+        println("PLACE ID: ${hospital.placeId}")
+        println("ESPECIALIDAD: $codigoEspecialidad")
 
-// Calcula minutos entre ahora y una hora de arribo (asume que la hora es siempre "hoy", no cruza medianoche)
-fun minutosHasta(horaArribo: LocalTime): Int {
-    val tz = TimeZone.currentSystemDefault()
-    val ahora = Clock.System.now().toLocalDateTime(tz).time
-    val diffSegundos = horaArribo.toSecondOfDay() - ahora.toSecondOfDay()
-    return (diffSegundos / 60).coerceAtLeast(0)
+        viewModelScope.launch {
+
+            val placeId = hospital.placeId
+                ?: return@launch
+
+            val resultado = elegirHospital(
+                placeId = placeId,
+                codigoEspecialidad = codigoEspecialidad
+            )
+
+            resultado
+                .onSuccess {
+                    hospitalSeleccionado = true
+                }
+                .onFailure {
+                    // Error
+                }
+        }
+    }
 }

@@ -71,7 +71,9 @@ fun SelectableOptionsGrid(
                             Text(
                                 text = option.label,
                                 color = if (seleccionado) Color(0xFF5BB8D4)
-                                else MaterialTheme.colorScheme.onBackground
+                                        else MaterialTheme.colorScheme.onBackground,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 2
                             )
                         }
                     }

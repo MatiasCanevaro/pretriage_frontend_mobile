@@ -2,7 +2,7 @@ package com.proyecto_final.triage.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.proyecto_final.triage.network.EspecialidadResponse
+import com.proyecto_final.triage.network.EspecialidadMedicaDTO
 import com.proyecto_final.triage.network.obtenerEspecialidades
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +31,7 @@ sealed class EspecialidadesState {
 
     object Loading : EspecialidadesState()
 
-    data class Success(val especialidades: List<EspecialidadResponse>) : EspecialidadesState()
+    data class Success(val especialidades: List<EspecialidadMedicaDTO>) : EspecialidadesState()
 
     data class Error(val message: String) : EspecialidadesState()
 }

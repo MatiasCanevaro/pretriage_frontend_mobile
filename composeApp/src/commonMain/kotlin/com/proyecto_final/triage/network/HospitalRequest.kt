@@ -4,30 +4,28 @@ import kotlinx.serialization.Serializable
 import kotlinx.datetime.LocalTime
 
 @Serializable
-data class HospitalResponse(
+data class HospitalCercanoDTO(
     val idHospital: Long,
-    val placeId: String,
+    val placeId: String?,
     val nombre: String,
     val direccion: String,
-    val especialidades: List<EspecialidadResponse>
+    val especialidades: List<EspecialidadMedicaDTO>,
+    val tiempoEstimadoArriboMejorRuta: String?
 )
 
 @Serializable
 data class CombinacionRutasDTO(
-    val nombreLinea: String
+    val nombreLinea: String?,
+    val tipoTransporte: String,
+    val indicaciones: String
 )
 
 @Serializable
 data class TiempoEstimadoArriboHospitalResponse(
     val transporte: String,
-    val tiempoEstimadoArribo: LocalTime,
+    val tiempoEstimadoArribo: String?,
     val idHospital: Long,
     val distanciaMetros: Int,
-    val polylineCode: String,
-    val combinacionesLineas: List<CombinacionRutasDTO> = emptyList()
-)
-@Serializable
-data class EspecialidadResponse(
-    val codigo: String,
-    val nombre: String
+    val PolylineCode: String?,
+    val combinacionesLineas: List<CombinacionRutasDTO>
 )

@@ -1,40 +1,40 @@
 package com.proyecto_final.triage.network
 
 import com.proyecto_final.triage.config.AppConfig
+import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import kotlinx.serialization.json.Json
-
-private val json = Json { ignoreUnknownKeys = true }
+import io.ktor.http.contentType
 
 suspend fun obtenerHospitalesCercanos(
     latitud: Double,
     longitud: Double,
-    codigoEspecialidad: String
-): Result<List<HospitalResponse>> {
+    codigoEspecialidad: String,
+    transporte: String = "transporte-publico"
+): Result<List<HospitalCercanoDTO>> {
     return try {
 
         val response = httpClient.get("${AppConfig.baseUrl}/api/hospitales/cercanos") {
             parameter("latitud", latitud)
             parameter("longitud", longitud)
             parameter("codigoEspecialidad", codigoEspecialidad)
+            parameter("transporte", transporte)
         }
-        println("HOSPITALES CERCANOS STATUS: ${response.status}")
-
-        val body = response.bodyAsText()
-        println("HOSPITALES CERCANOS BODY: $body")
 
         if (response.status == HttpStatusCode.OK) {
-            val hospitales = json.decodeFromString<List<HospitalResponse>>(body)
+            val hospitales = response.body<List<HospitalCercanoDTO>>()
             Result.success(hospitales)
         } else {
-            Result.failure(Exception("No se pudieron obtener los hospitales cercanos"))
+            val errorBody = response.bodyAsText()
+            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
         }
 
     } catch (e: Exception) {
-        println("HOSPITALES CERCANOS EXCEPTION: ${e.message}")
         Result.failure(e)
     }
 }
@@ -46,18 +46,55 @@ suspend fun obtenerTiempoArriboHospital(
     longitud: Double
 ): Result<List<TiempoEstimadoArriboHospitalResponse>> {
     return try {
-        val response = httpClient.get("${AppConfig.baseUrl}/api/hospitales/$idHospital/tiempo-arribo") {
+
+        val response = httpClient.get(
+            "${AppConfig.baseUrl}/api/hospitales/$idHospital/tiempo-arribo"
+        ) {
             parameter("transporte", transporte)
             parameter("latitud", latitud)
             parameter("longitud", longitud)
         }
-        val body = response.bodyAsText()
 
         if (response.status == HttpStatusCode.OK) {
-            Result.success(json.decodeFromString<List<TiempoEstimadoArriboHospitalResponse>>(body))
+
+            Result.success(
+                response.body<List<TiempoEstimadoArriboHospitalResponse>>()
+            )
+
         } else {
-            Result.failure(Exception("No se pudo obtener el tiempo de arribo al hospital"))
+
+            val errorBody = response.bodyAsText()
+
+            Result.failure(
+                Exception(
+                    "Error ${response.status.value}: $errorBody"
+                )
+            )
         }
+
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+
+suspend fun elegirHospital(
+    placeId: String,
+    codigoEspecialidad: String
+): Result<Unit> {
+    return try {
+
+        val response = httpClient.post("${AppConfig.baseUrl}/api/atencion/hospital") {
+            contentType(ContentType.Application.Json)
+            setBody(SeleccionHospitalRequest(placeId = placeId, codigoEspecialidad = codigoEspecialidad))
+        }
+
+        if (response.status == HttpStatusCode.NoContent) {
+            Result.success(Unit)
+        } else {
+            val errorBody = response.bodyAsText()
+            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
+        }
+
     } catch (e: Exception) {
         Result.failure(e)
     }

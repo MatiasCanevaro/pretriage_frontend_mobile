@@ -33,7 +33,7 @@ import com.proyecto_final.triage.viewmodels.SelectTypeGuardViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import com.proyecto_final.triage.components.ProgressBar
-import com.proyecto_final.triage.network.EspecialidadResponse
+import com.proyecto_final.triage.network.EspecialidadMedicaDTO
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.EspecialidadesState
 
@@ -67,7 +67,7 @@ fun SelectTypeGuardContent(viewModel: SelectTypeGuardViewModel, onBack: () -> Un
         viewModel.cargarEspecialidades()
     }
 
-    var selectedEspecialidad by remember { mutableStateOf<EspecialidadResponse?>(null) }
+    var selectedEspecialidad by remember { mutableStateOf<EspecialidadMedicaDTO?>(null) }
 
     Column( modifier = Modifier
         .fillMaxSize()

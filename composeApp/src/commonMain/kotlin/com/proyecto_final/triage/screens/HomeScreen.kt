@@ -26,27 +26,42 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.network.TokenStorage
+import com.proyecto_final.triage.viewmodels.HomeState
+import com.proyecto_final.triage.viewmodels.HomeViewModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.*
 
 class HomeScreen : Screen {
+
     @Composable
     override fun Content() {
+
         val navigator = LocalNavigator.current
+        val viewModel = remember { HomeViewModel() }
+
+        val state = viewModel.state
 
         if (TokenStorage.getToken() == null) {
             navigator?.push(SignInScreen())
-        } else {
-            println("TOKEN ${TokenStorage.getToken()}")
+            return
+        }
+
+        LaunchedEffect(Unit) {
+            viewModel.cargarEstadoConsulta()
         }
 
         HomeContent(
+            state = state,
             onEmergency = { },
-            onSolicitarAtencion = { navigator?.push(SelectTypeGuardScreen()) },
+            onSolicitarAtencion = {
+                navigator?.push(SelectTypeGuardScreen())
+            },
             onCargarEstudios = { },
-            onMiPerfil = { navigator?.push(ProfileScreen()) }
+            onMiPerfil = {
+                navigator?.push(ProfileScreen())
+            }
         )
     }
 }
@@ -56,6 +71,7 @@ class HomeScreen : Screen {
 fun HomePreview() {
     AppTheme {
         HomeContent(
+            state = HomeState.Loading,
             onEmergency = { },
             onSolicitarAtencion = { },
             onCargarEstudios = { },
@@ -66,6 +82,7 @@ fun HomePreview() {
 
 @Composable
 fun HomeContent(
+    state: HomeState,
     onEmergency: () -> Unit,
     onSolicitarAtencion: () -> Unit,
     onCargarEstudios: () -> Unit,
@@ -74,8 +91,7 @@ fun HomeContent(
     val carouselImages = listOf(Res.drawable.image1, Res.drawable.image2, Res.drawable.image3)
     var currentImage by remember { mutableStateOf(0) }
 
-    // atención activa simulada, null = sin atención
-    val atencionActiva: AtencionActiva? = AtencionActiva(
+    val atencionActiva: AtencionActiva = AtencionActiva(
         hospital = "Hospital Fernandez",
         estado = "En espera",
         personasAdelante = 8,
