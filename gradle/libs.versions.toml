@@ -10,6 +10,8 @@ androidx-core = "1.18.0"
 androidx-espresso = "3.7.0"
 androidx-lifecycle = "2.10.0"
 androidx-testExt = "1.3.0"
+cmpFilePicker = "1.0.7"
+cmpfilepickerVersion = "1.1.7"
 composeMultiplatform = "1.10.3"
 coreSplashscreen = "1.2.0"
 junit = "4.13.2"
@@ -33,6 +35,8 @@ android-sdk = { module = "org.maplibre.gl:android-sdk", version.ref = "androidSd
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
 androidx-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+cmp-file-picker = { module = "network.chaintech:cmp-file-picker", version.ref = "cmpFilePicker" }
+cmpfilepicker = { module = "network.chaintech:cmpfilepicker", version.ref = "cmpfilepickerVersion" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
