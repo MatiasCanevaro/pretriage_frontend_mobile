@@ -6,12 +6,18 @@ import android.content.pm.PackageManager
 import android.location.Geocoder
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -29,6 +35,7 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import java.util.Locale
@@ -38,92 +45,203 @@ private val ACCENT = Color(0xFF5BB8D4)
 @SuppressLint("MissingPermission")
 @Composable
 actual fun PlatformMap(
-    hospital: HospitalSeleccionadoResponse?
+    hospital: HospitalSeleccionadoResponse?,
+    ubicacion: String?,
+    polylineCode: String?
 ) {
+
     val context = LocalContext.current
 
     val fusedLocationClient = remember {
         LocationServices.getFusedLocationProviderClient(context)
     }
 
+    /*
+     * ============================================================
+     * UBICACIÓN DEL USUARIO
+     * ============================================================
+     */
+
     var userLocation by remember {
         mutableStateOf<LatLng?>(null)
     }
 
-    var hospitalLocation by remember(hospital?.direccion) {
-        mutableStateOf<LatLng?>(null)
-    }
+    /*
+     * Primero intentamos utilizar la ubicación recibida.
+     *
+     * Formato:
+     *
+     * "latitud,longitud"
+     */
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                location?.let {
-                    userLocation = LatLng(
-                        it.latitude,
-                        it.longitude
-                    )
-                }
-            }
-        }
-    }
+    LaunchedEffect(ubicacion) {
 
-    // Obtener ubicación del usuario
-    LaunchedEffect(Unit) {
-        if (
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                location?.let {
-                    userLocation = LatLng(
-                        it.latitude,
-                        it.longitude
-                    )
-                }
-            }
-        } else {
-            permissionLauncher.launch(
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        }
-    }
-
-    // Geocodificar hospital
-    LaunchedEffect(hospital?.direccion) {
-        val direccion = hospital?.direccion
-
-        if (direccion.isNullOrBlank()) {
-            hospitalLocation = null
+        if (ubicacion.isNullOrBlank()) {
             return@LaunchedEffect
         }
 
-        hospitalLocation = withContext(Dispatchers.IO) {
+        try {
+            val coordenadas = ubicacion
+                .split(",")
+                .map { it.trim().toDouble() }
+
+            if (coordenadas.size >= 2) {
+                userLocation = LatLng(
+                    coordenadas[0],
+                    coordenadas[1]
+                )
+            }
+
+        } catch (_: Exception) {
+            // Si no hay ubicación válida,
+            // se intenta obtener la ubicación del dispositivo.
+        }
+    }
+
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+
+            if (granted) {
+
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+
+                        location?.let {
+
+                            userLocation = LatLng(
+                                it.latitude,
+                                it.longitude
+                            )
+                        }
+                    }
+            }
+        }
+
+    /*
+     * Si no recibimos ubicación, intentamos obtenerla
+     * directamente del dispositivo.
+     */
+
+    LaunchedEffect(Unit) {
+
+        if (userLocation == null) {
+
+            if (
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+
+                        location?.let {
+
+                            userLocation = LatLng(
+                                it.latitude,
+                                it.longitude
+                            )
+                        }
+                    }
+
+            } else {
+
+                permissionLauncher.launch(
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                )
+            }
+        }
+    }
+
+    /*
+     * ============================================================
+     * UBICACIÓN DEL HOSPITAL
+     * ============================================================
+     */
+
+    var hospitalLocation by remember(
+        hospital?.direccion
+    ) {
+        mutableStateOf<LatLng?>(null)
+    }
+
+    LaunchedEffect(hospital?.direccion) {
+
+        val direccion = hospital?.direccion
+
+        if (direccion.isNullOrBlank()) {
+
+            hospitalLocation = null
+
+            return@LaunchedEffect
+        }
+
+        hospitalLocation = withContext(
+            Dispatchers.IO
+        ) {
+
             if (!Geocoder.isPresent()) {
                 return@withContext null
             }
 
             try {
+
                 @Suppress("DEPRECATION")
-                Geocoder(context, Locale.getDefault())
-                    .getFromLocationName(direccion, 1)
+                Geocoder(
+                    context,
+                    Locale.getDefault()
+                )
+                    .getFromLocationName(
+                        direccion,
+                        1
+                    )
                     ?.firstOrNull()
                     ?.let {
+
                         LatLng(
                             it.latitude,
                             it.longitude
                         )
                     }
-            } catch (e: Exception) {
+
+            } catch (_: Exception) {
+
                 null
             }
         }
     }
 
+    /*
+     * ============================================================
+     * POLYLINE
+     * ============================================================
+     */
+
+    var routePoints by remember {
+        mutableStateOf<List<LatLng>>(emptyList())
+    }
+
+    LaunchedEffect(polylineCode) {
+
+        routePoints =
+            if (polylineCode.isNullOrBlank()) {
+                emptyList()
+            } else {
+                decodePolyline(polylineCode)
+            }
+    }
+
+    /*
+     * ============================================================
+     * MAP VIEW
+     * ============================================================
+     */
+
     val mapView = remember {
+
         MapView(context).apply {
             onCreate(null)
         }
@@ -140,10 +258,12 @@ actual fun PlatformMap(
             map.setStyle(
                 "https://tiles.openfreemap.org/styles/liberty"
             ) {
+
                 mapLibreMap = map
 
                 map.uiSettings.isLogoEnabled = false
                 map.uiSettings.isAttributionEnabled = false
+
                 map.uiSettings.isScrollGesturesEnabled = false
                 map.uiSettings.isZoomGesturesEnabled = false
                 map.uiSettings.isRotateGesturesEnabled = false
@@ -158,69 +278,141 @@ actual fun PlatformMap(
         }
     }
 
-    // Dibujar marcadores
+    /*
+     * ============================================================
+     * DIBUJAR MAPA
+     * ============================================================
+     */
+
     LaunchedEffect(
         userLocation,
         hospitalLocation,
+        routePoints,
         mapLibreMap
     ) {
-        val map = mapLibreMap ?: return@LaunchedEffect
+
+        val map = mapLibreMap
+            ?: return@LaunchedEffect
 
         map.getStyle { style ->
 
+            /*
+             * USUARIO
+             */
+
             userLocation?.let { location ->
+
                 dibujarMarcadorEnMapa(
                     style = style,
-                    sourceId = "consulta-user-location-source",
-                    dotLayerId = "consulta-user-location-dot",
+                    sourceId =
+                        "consulta-user-location-source",
+                    dotLayerId =
+                        "consulta-user-location-dot",
                     location = location,
                     color = ACCENT
                 )
             }
 
+            /*
+             * HOSPITAL
+             */
+
             hospitalLocation?.let { location ->
+
                 dibujarMarcadorEnMapa(
                     style = style,
-                    sourceId = "consulta-hospital-location-source",
-                    dotLayerId = "consulta-hospital-location-dot",
+                    sourceId =
+                        "consulta-hospital-location-source",
+                    dotLayerId =
+                        "consulta-hospital-location-dot",
                     location = location,
                     color = Color(0xFFE57373)
                 )
             }
+
+            /*
+             * RUTA
+             */
+
+            if (routePoints.isNotEmpty()) {
+
+                dibujarRutaEnMapa(
+                    style = style,
+                    points = routePoints
+                )
+            }
         }
 
-        when {
-            userLocation != null && hospitalLocation != null -> {
+        /*
+         * ========================================================
+         * CÁMARA
+         * ========================================================
+         */
 
-                val bounds = LatLngBounds.Builder()
-                    .include(userLocation!!)
-                    .include(hospitalLocation!!)
-                    .build()
+        if (routePoints.isNotEmpty()) {
 
-                map.animateCamera(
-                    CameraUpdateFactory.newLatLngBounds(
-                        bounds,
-                        120
-                    )
-                )
+            val boundsBuilder =
+                LatLngBounds.Builder()
+
+            routePoints.forEach {
+                boundsBuilder.include(it)
             }
 
-            hospitalLocation != null -> {
-                map.animateCamera(
-                    CameraUpdateFactory.newLatLngZoom(
-                        hospitalLocation!!,
-                        15.0
-                    )
-                )
+            userLocation?.let {
+                boundsBuilder.include(it)
             }
 
-            userLocation != null -> {
-                map.animateCamera(
-                    CameraUpdateFactory.newLatLngZoom(
-                        userLocation!!,
-                        15.0
-                    )
+            hospitalLocation?.let {
+                boundsBuilder.include(it)
+            }
+
+            map.animateCamera(
+                CameraUpdateFactory.newLatLngBounds(
+                    boundsBuilder.build(),
+                    80
                 )
+            )
+
+        } else {
+
+            when {
+
+                userLocation != null &&
+                        hospitalLocation != null -> {
+
+                    val bounds =
+                        LatLngBounds.Builder()
+                            .include(userLocation!!)
+                            .include(hospitalLocation!!)
+                            .build()
+
+                    map.animateCamera(
+                        CameraUpdateFactory.newLatLngBounds(
+                            bounds,
+                            120
+                        )
+                    )
+                }
+
+                hospitalLocation != null -> {
+
+                    map.animateCamera(
+                        CameraUpdateFactory.newLatLngZoom(
+                            hospitalLocation!!,
+                            15.0
+                        )
+                    )
+                }
+
+                userLocation != null -> {
+
+                    map.animateCamera(
+                        CameraUpdateFactory.newLatLngZoom(
+                            userLocation!!,
+                            15.0
+                        )
+                    )
+                }
             }
         }
     }
@@ -231,10 +423,17 @@ actual fun PlatformMap(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .height(180.dp)
+            .clip(
+                RoundedCornerShape(12.dp)
+            )
     )
 }
+
+
+/* ============================================================
+   MARCADOR
+   ============================================================ */
 
 private fun dibujarMarcadorEnMapa(
     style: Style,
@@ -243,6 +442,7 @@ private fun dibujarMarcadorEnMapa(
     location: LatLng,
     color: Color
 ) {
+
     val geoJson = """
         {
             "type": "FeatureCollection",
@@ -259,10 +459,17 @@ private fun dibujarMarcadorEnMapa(
         }
     """.trimIndent()
 
-    val existingSource = style.getSourceAs<GeoJsonSource>(sourceId)
+    val existingSource =
+        style.getSourceAs<GeoJsonSource>(
+            sourceId
+        )
 
     if (existingSource != null) {
-        existingSource.setGeoJson(geoJson)
+
+        existingSource.setGeoJson(
+            geoJson
+        )
+
         return
     }
 
@@ -278,13 +485,209 @@ private fun dibujarMarcadorEnMapa(
             dotLayerId,
             sourceId
         ).withProperties(
-            PropertyFactory.circleRadius(7f),
-            PropertyFactory.circleColor(color.toArgb()),
-            PropertyFactory.circleOpacity(1f),
+
+            PropertyFactory.circleRadius(
+                7f
+            ),
+
+            PropertyFactory.circleColor(
+                color.toArgb()
+            ),
+
+            PropertyFactory.circleOpacity(
+                1f
+            ),
+
             PropertyFactory.circleStrokeColor(
                 Color.White.toArgb()
             ),
-            PropertyFactory.circleStrokeWidth(2f)
+
+            PropertyFactory.circleStrokeWidth(
+                2f
+            )
         )
     )
+}
+
+
+/* ============================================================
+   DIBUJAR RUTA
+   ============================================================ */
+
+private fun dibujarRutaEnMapa(
+    style: Style,
+    points: List<LatLng>
+) {
+
+    if (points.size < 2) {
+        return
+    }
+
+    val coordinates =
+        points.joinToString(
+            separator = ","
+        ) {
+            """
+            [
+                ${it.longitude},
+                ${it.latitude}
+            ]
+            """.trimIndent()
+        }
+
+    val geoJson = """
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    $coordinates
+                ]
+            }
+        }
+    """.trimIndent()
+
+    val sourceId =
+        "consulta-route-source"
+
+    val layerId =
+        "consulta-route-line"
+
+    val existingSource =
+        style.getSourceAs<GeoJsonSource>(
+            sourceId
+        )
+
+    if (existingSource != null) {
+
+        existingSource.setGeoJson(
+            geoJson
+        )
+
+        return
+    }
+
+    style.addSource(
+        GeoJsonSource(
+            sourceId,
+            geoJson
+        )
+    )
+
+    style.addLayer(
+        LineLayer(
+            layerId,
+            sourceId
+        ).withProperties(
+
+            PropertyFactory.lineColor(
+                ACCENT.toArgb()
+            ),
+
+            PropertyFactory.lineWidth(
+                5f
+            ),
+
+            PropertyFactory.lineOpacity(
+                0.9f
+            ),
+
+            PropertyFactory.lineCap(
+                "round"
+            ),
+
+            PropertyFactory.lineJoin(
+                "round"
+            )
+        )
+    )
+}
+
+
+/* ============================================================
+   DECODIFICAR ENCODED POLYLINE
+   ============================================================ */
+
+private fun decodePolyline(
+    encoded: String
+): List<LatLng> {
+
+    val polyline = mutableListOf<LatLng>()
+
+    var index = 0
+
+    var latitude = 0
+    var longitude = 0
+
+    while (index < encoded.length) {
+
+        var result = 0
+        var shift = 0
+
+        while (true) {
+
+            val byte =
+                encoded[index++].code - 63
+
+            result =
+                result or (
+                        (byte and 0x1F)
+                                shl shift
+                        )
+
+            shift += 5
+
+            if (byte < 0x20) {
+                break
+            }
+        }
+
+        val deltaLatitude =
+            if ((result and 1) != 0) {
+                -(result shr 1) - 1
+            } else {
+                result shr 1
+            }
+
+        latitude += deltaLatitude
+
+        result = 0
+        shift = 0
+
+        while (true) {
+
+            val byte =
+                encoded[index++].code - 63
+
+            result =
+                result or (
+                        (byte and 0x1F)
+                                shl shift
+                        )
+
+            shift += 5
+
+            if (byte < 0x20) {
+                break
+            }
+        }
+
+        val deltaLongitude =
+            if ((result and 1) != 0) {
+                -(result shr 1) - 1
+            } else {
+                result shr 1
+            }
+
+        longitude += deltaLongitude
+
+        polyline.add(
+            LatLng(
+                latitude / 1E5,
+                longitude / 1E5
+            )
+        )
+    }
+
+    return polyline
 }

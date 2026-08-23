@@ -50,7 +50,7 @@ class RutasHospitalViewModel : ViewModel() {
                         println("Tiempo: ${ruta.tiempoEstimadoArribo}")
                         println("Hospital: ${ruta.idHospital}")
                         println("Distancia: ${ruta.distanciaMetros}")
-                        println("Polyline: ${ruta.PolylineCode}")
+                        println("Polyline: ${ruta.polylineCode}")
 
                         println("Combinaciones:")
                         ruta.combinacionesLineas.forEach { combinacion ->

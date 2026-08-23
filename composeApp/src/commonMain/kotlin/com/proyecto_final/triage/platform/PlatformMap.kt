@@ -5,5 +5,7 @@ import com.proyecto_final.triage.network.estadoConsulta.HospitalSeleccionadoResp
 
 @Composable
 expect fun PlatformMap(
-    hospital: HospitalSeleccionadoResponse?
+    hospital: HospitalSeleccionadoResponse?,
+    ubicacion: String? = null,
+    polylineCode: String? = null
 )

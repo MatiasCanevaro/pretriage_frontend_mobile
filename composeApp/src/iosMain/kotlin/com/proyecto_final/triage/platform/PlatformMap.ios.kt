@@ -5,7 +5,8 @@ import com.proyecto_final.triage.network.estadoConsulta.HospitalSeleccionadoResp
 
 @Composable
 actual fun PlatformMap(
-    hospital: HospitalSeleccionadoResponse?
+    hospital: HospitalSeleccionadoResponse?,
+    ubicacion: String,
+    polylineCode: String?
 ) {
-    // Sin implementación en iOS por ahora
 }

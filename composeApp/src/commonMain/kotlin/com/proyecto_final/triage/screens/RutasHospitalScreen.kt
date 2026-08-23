@@ -51,21 +51,23 @@ import com.proyecto_final.triage.components.ErrorBanner
 import com.proyecto_final.triage.network.CombinacionRutasDTO
 import com.proyecto_final.triage.network.RutasHospitalState
 import com.proyecto_final.triage.network.TiempoEstimadoArriboHospitalResponse
+import com.proyecto_final.triage.platform.PlatformMap
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.RutasHospitalViewModel
 
-
 class RutasHospitalScreen(
     private val hospital: Hospital,
-    private val ubicacion: String,
-    private val codigoEspecialidad: String
+    private val ubicacion: String
 ) : Screen {
 
     @Composable
     override fun Content() {
 
         val navigator = LocalNavigator.current
-        val viewModel = remember { RutasHospitalViewModel() }
+
+        val viewModel = remember {
+            RutasHospitalViewModel()
+        }
 
         val state = viewModel.state
 
@@ -77,6 +79,7 @@ class RutasHospitalScreen(
         val longitud = coordenadas[1]
 
         LaunchedEffect(Unit) {
+
             viewModel.cargarRutas(
                 idHospital = hospital.idHospital,
                 transporte = "transporte-publico",
@@ -93,6 +96,7 @@ class RutasHospitalScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
+
                     CircularProgressIndicator(
                         color = Color(0xFF5BB8D4)
                     )
@@ -106,6 +110,7 @@ class RutasHospitalScreen(
                     buttonText = "Reintentar",
                     icon = Icons.Filled.ErrorOutline,
                     onButtonClick = {
+
                         viewModel.cargarRutas(
                             idHospital = hospital.idHospital,
                             transporte = "transporte-publico",
@@ -121,6 +126,7 @@ class RutasHospitalScreen(
                 RutasHospitalContent(
                     hospital = hospital,
                     rutas = state.rutas,
+                    ubicacion = ubicacion,
                     onBack = {
                         navigator?.pop()
                     },
@@ -142,9 +148,21 @@ class RutasHospitalScreen(
 fun RutasHospitalContent(
     hospital: Hospital,
     rutas: List<TiempoEstimadoArriboHospitalResponse>,
+    ubicacion: String,
     onBack: () -> Unit,
     onConfirmar: () -> Unit
 ) {
+
+    /*
+     * Ruta seleccionada.
+     *
+     * Por defecto seleccionamos la primera ruta.
+     */
+    var rutaSeleccionada by remember(rutas) {
+        mutableStateOf(0)
+    }
+
+    val rutaActual = rutas.getOrNull(rutaSeleccionada)
 
     Column(
         modifier = Modifier
@@ -153,10 +171,6 @@ fun RutasHospitalContent(
                 MaterialTheme.colorScheme.background
             )
     ) {
-
-        /*
-         * CONTENIDO SCROLLEABLE
-         */
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -170,7 +184,6 @@ fun RutasHospitalContent(
             CommonHeader(
                 title = "Cómo llegar",
                 subtitle = "Revisá las opciones para llegar al hospital",
-                showLogo = true,
                 onBack = onBack
             )
 
@@ -185,12 +198,44 @@ fun RutasHospitalContent(
             )
 
             Spacer(
+                modifier = Modifier.height(4.dp)
+            )
+
+            Text(
+                text = hospital.direccion,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(
                 modifier = Modifier.height(16.dp)
+            )
+
+            /*
+             * MAPA
+             *
+             * Mostramos la ruta seleccionada.
+             */
+
+            PlatformMap(
+                hospital = com.proyecto_final.triage.network.estadoConsulta.HospitalSeleccionadoResponse(
+                    idHospital = hospital.idHospital,
+                    placeId = hospital.placeId,
+                    nombre = hospital.nombre,
+                    direccion = hospital.direccion
+                ),
+                ubicacion = ubicacion,
+                polylineCode = rutaActual?.polylineCode
+            )
+
+            Spacer(
+                modifier = Modifier.height(20.dp)
             )
 
             /*
              * CANTIDAD DE RUTAS
              */
+
             Text(
                 text = if (rutas.size == 1) {
                     "1 ruta disponible"
@@ -208,13 +253,17 @@ fun RutasHospitalContent(
             /*
              * RUTAS
              *
-             * IMPORTANTE:
-             * Una card = una ruta completa.
+             * Al tocar una ruta se actualiza el MiniMap.
              */
-            rutas.forEach { ruta ->
+
+            rutas.forEachIndexed { index, ruta ->
 
                 RutaCard(
-                    ruta = ruta
+                    ruta = ruta,
+                    seleccionada = index == rutaSeleccionada,
+                    onClick = {
+                        rutaSeleccionada = index
+                    }
                 )
 
                 Spacer(
@@ -227,32 +276,6 @@ fun RutasHospitalContent(
             )
         }
 
-        /*
-         * BOTÓN FIJO
-         */
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.background
-                )
-                .padding(horizontal = 16.dp)
-        ) {
-
-            Button(
-                onClick = onConfirmar,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-            ) {
-                Text("Confirmar")
-            }
-
-            Spacer(
-                modifier = Modifier.height(24.dp)
-            )
-        }
     }
 }
 
@@ -291,9 +314,11 @@ fun agruparTramos(
          * y el nuevo también es caminar,
          * los juntamos.
          */
+
         if (
             esCaminar &&
-            resultado.lastOrNull()?.tipoTransporte
+            resultado.lastOrNull()
+                ?.tipoTransporte
                 ?.equals(
                     "caminar",
                     ignoreCase = true
@@ -341,7 +366,9 @@ fun agruparTramos(
 
 @Composable
 fun RutaCard(
-    ruta: TiempoEstimadoArriboHospitalResponse
+    ruta: TiempoEstimadoArriboHospitalResponse,
+    seleccionada: Boolean,
+    onClick: () -> Unit
 ) {
 
     var expanded by remember {
@@ -351,7 +378,9 @@ fun RutaCard(
     /*
      * Agrupamos los caminar consecutivos.
      */
+
     val tramos = remember(ruta) {
+
         agruparTramos(
             ruta.combinacionesLineas
         )
@@ -361,19 +390,31 @@ fun RutaCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
+                onClick()
                 expanded = !expanded
             },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor =
+                if (seleccionada) {
+                    Color(0xFFE3F2FD)
+                } else {
+                    MaterialTheme.colorScheme.surface
+                }
         ),
         border = BorderStroke(
-            width = if (expanded) 2.dp else 1.dp,
-            color = if (expanded) {
-                Color(0xFF5BB8D4)
-            } else {
-                Color(0xFFD6D6D6)
-            }
+            width =
+                if (seleccionada) {
+                    2.dp
+                } else {
+                    1.dp
+                },
+            color =
+                if (seleccionada) {
+                    Color(0xFF5BB8D4)
+                } else {
+                    Color(0xFFD6D6D6)
+                }
         )
     ) {
 
@@ -384,6 +425,7 @@ fun RutaCard(
             /*
              * CABECERA
              */
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -394,7 +436,8 @@ fun RutaCard(
                 ) {
 
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment =
+                            Alignment.CenterVertically
                     ) {
 
                         Icon(
@@ -424,9 +467,11 @@ fun RutaCard(
                         )
 
                         Text(
-                            text = "· ${formatearDistancia(
-                                ruta.distanciaMetros
-                            )}",
+                            text = "· ${
+                                formatearDistancia(
+                                    ruta.distanciaMetros
+                                )
+                            }",
                             style =
                                 MaterialTheme.typography.bodyMedium,
                             color =
@@ -436,11 +481,12 @@ fun RutaCard(
                 }
 
                 Icon(
-                    imageVector = if (expanded) {
-                        Icons.Filled.KeyboardArrowUp
-                    } else {
-                        Icons.Filled.KeyboardArrowDown
-                    },
+                    imageVector =
+                        if (expanded) {
+                            Icons.Filled.KeyboardArrowUp
+                        } else {
+                            Icons.Filled.KeyboardArrowDown
+                        },
                     contentDescription = null,
                     tint =
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -453,18 +499,8 @@ fun RutaCard(
 
             /*
              * RESUMEN DE LA RUTA
-             *
-             * Ejemplo:
-             *
-             * 🚶  >  🚶  >  🚌 28  >  🚶
-             *
-             * Pero los caminar consecutivos
-             * ya fueron agrupados.
-             *
-             * Resultado:
-             *
-             * 🚶  >  🚌 28  >  🚶
              */
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement =
@@ -495,6 +531,7 @@ fun RutaCard(
             /*
              * DETALLE DE LA RUTA
              */
+
             if (expanded) {
 
                 HorizontalDivider(
@@ -559,13 +596,6 @@ fun RutaChip(
     val tieneLinea =
         !tramo.nombreLinea.isNullOrBlank()
 
-    /*
-     * Para caminar:
-     *
-     * 🚶
-     *
-     * No mostramos "Caminar".
-     */
     Card(
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
@@ -578,7 +608,8 @@ fun RutaChip(
                 horizontal = 8.dp,
                 vertical = 6.dp
             ),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
 
             Icon(
@@ -588,10 +619,6 @@ fun RutaChip(
                 modifier = Modifier.size(18.dp)
             )
 
-            /*
-             * Solamente mostramos la línea
-             * si existe.
-             */
             if (tieneLinea) {
 
                 Spacer(
@@ -664,13 +691,6 @@ fun RutaIndicacion(
             modifier = Modifier.weight(1f)
         ) {
 
-            /*
-             * Para colectivos/trenes/etc.
-             * mostramos la línea.
-             *
-             * Para caminar no mostramos
-             * "Caminar".
-             */
             if (
                 !esCaminar &&
                 !tramo.nombreLinea.isNullOrBlank()
@@ -689,11 +709,6 @@ fun RutaIndicacion(
                 )
             }
 
-            /*
-             * Las indicaciones de varios
-             * tramos de caminar quedaron
-             * agrupadas acá.
-             */
             tramo.indicaciones.forEach { indicacion ->
 
                 Text(

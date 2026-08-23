@@ -2,6 +2,7 @@ package com.proyecto_final.triage.network
 
 import kotlinx.serialization.Serializable
 import kotlinx.datetime.LocalTime
+import kotlinx.serialization.SerialName
 
 @Serializable
 data class HospitalCercanoDTO(
@@ -26,6 +27,7 @@ data class TiempoEstimadoArriboHospitalResponse(
     val tiempoEstimadoArribo: String?,
     val idHospital: Long,
     val distanciaMetros: Int,
-    val PolylineCode: String?,
+    @SerialName("PolylineCode")
+    val polylineCode: String?,
     val combinacionesLineas: List<CombinacionRutasDTO>
 )
