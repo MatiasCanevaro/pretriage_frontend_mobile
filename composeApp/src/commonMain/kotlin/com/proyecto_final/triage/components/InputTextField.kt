@@ -39,8 +39,10 @@ fun InputTextField(
     errorMessage: String = "Este campo es obligatorio",
     isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
-    placeholder: String? = null
+    placeholder: String? = null,
+    maxLength: Int? = null
 ) {
+
     var passwordVisible by remember { mutableStateOf(false) }
     Column(
         modifier = modifier.fillMaxWidth()
@@ -53,10 +55,16 @@ fun InputTextField(
         OutlinedTextField(
             value = value,
             onValueChange = { newValue ->
-                if (
+
+                val onlyNumbers =
                     keyboardType != KeyboardType.Number ||
-                    newValue.all { it.isDigit() }
-                ) {
+                            newValue.all { it.isDigit() }
+
+                val withinLimit =
+                    maxLength == null ||
+                            newValue.length <= maxLength
+
+                if (onlyNumbers && withinLimit) {
                     onValueChange(newValue)
                 }
             },

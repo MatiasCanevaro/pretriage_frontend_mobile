@@ -20,9 +20,9 @@ data class RegisterRequest(
     val apellido: String,
     val numeroDocumento: String,
     val tipoDocumento: String,
-    val tipoUsuario: String,
     val email: String,
     val password: String,
+    val tipoUsuario: String,
     val rol: String
 )
 
