@@ -1,5 +1,6 @@
 package com.proyecto_final.triage.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -29,6 +30,9 @@ import com.proyecto_final.triage.storage.TokenStorage
 import com.proyecto_final.triage.viewmodels.HomeState
 import com.proyecto_final.triage.viewmodels.HomeViewModel
 import kotlinx.coroutines.delay
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.*
@@ -50,9 +54,12 @@ class HomeScreen : Screen {
             viewModel.cargarEstadoConsulta()
         }
 
+        DisposableEffect(Unit) {
+            onDispose { viewModel.detener() }
+        }
+
         HomeContent(
             state = state,
-            tieneHospitalSeleccionado = viewModel.tieneHospitalSeleccionado,
             onEmergency = { },
             onSolicitarAtencion = { navigator?.push(SelectTypeGuardScreen()) },
             onChat = { navigator?.push(ChatScreen()) },
@@ -69,7 +76,6 @@ fun HomePreview() {
     AppTheme {
         HomeContent(
             state = HomeState.Loading,
-            tieneHospitalSeleccionado = false,
             onEmergency = { },
             onSolicitarAtencion = { },
             onChat = { },
@@ -83,7 +89,6 @@ fun HomePreview() {
 @Composable
 fun HomeContent(
     state: HomeState,
-    tieneHospitalSeleccionado: Boolean,
     onEmergency: () -> Unit,
     onSolicitarAtencion: () -> Unit,
     onChat: () -> Unit,
@@ -91,27 +96,20 @@ fun HomeContent(
     onMiPerfil: () -> Unit,
     onConsultaActiva: () -> Unit
 ) {
-    val carouselImages = listOf(Res.drawable.image1, Res.drawable.image2, Res.drawable.image3)
-    var currentImage by remember { mutableStateOf(0) }
-
-    val tieneHospitalSeleccionado =
-        (state as? HomeState.Success)
-            ?.estado
-            ?.estadoConsulta
-            ?.let {
-                it == "HOSPITAL_SELECCIONADO" ||
-                        it == "PRETRIAGE_EN_PROCESO" ||
-                        it == "PRETRIAGE_FINALIZADO" ||
-                        it == "EN_COLA"
-            }
-            ?: false
+    val carouselImages = listOf(
+        Res.drawable.image1,
+        Res.drawable.image2,
+        Res.drawable.image3
+    )
 
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
+
         Spacer(modifier = Modifier.height(36.dp))
 
         // HEADER
@@ -124,19 +122,25 @@ fun HomeContent(
                 contentDescription = "Logo",
                 modifier = Modifier.size(48.dp)
             )
+
             Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = "Hola Matias!",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground
                 )
+
                 Text(
                     text = "¿Como podemos ayudarte?",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
             Box {
                 Icon(
                     imageVector = Icons.Filled.Person,
@@ -151,7 +155,6 @@ fun HomeContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         // CARRUSEL
-        val carouselImages = listOf(Res.drawable.image1, Res.drawable.image2, Res.drawable.image3)
         Carousel(carouselImages)
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -165,81 +168,137 @@ fun HomeContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Card grande - Solicitar atención
+        // ─────────────────────────────────────────
+        // SOLICITAR ATENCIÓN
+        // ─────────────────────────────────────────
         Card(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onSolicitarAtencion() },
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFBBDEFB)
+            ),
+            border = BorderStroke(
+                width = 1.dp,
+                color = Color(0xFF90CAF9)
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 6.dp
+            )
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.Top
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Icon(
                     imageVector = Icons.Filled.LocalHospital,
-                    contentDescription = null,
-                    tint = Color(0xFF5BB8D4),
-                    modifier = Modifier.size(40.dp)
+                    contentDescription = "Solicitar atención",
+                    tint = Color(0xFF6B7280),
+                    modifier = Modifier.size(44.dp)
                 )
+
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
                         text = "Solicitar atención de guardia",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onBackground
                     )
+
                     Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
                         text = "Elegí el hospital según su tiempo de espera y describí tus síntomas",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = "Continuar",
+                    tint = Color(0xFF6B7280),
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Card - Chat interactivo (opcional)
+        // ─────────────────────────────────────────
+        // HISTORIAL DE CONSULTAS
+        // ─────────────────────────────────────────
         Card(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onChat() },
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                .clickable { },
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFBBDEFB)
+            ),
+            border = BorderStroke(
+                width = 1.dp,
+                color = Color(0xFF90CAF9)
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 6.dp
+            )
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.Top
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Chat,
-                    contentDescription = null,
-                    tint = Color(0xFF5BB8D4),
-                    modifier = Modifier.size(40.dp)
+                    imageVector = Icons.Filled.History,
+                    contentDescription = "Historial de consultas",
+                    tint = Color(0xFF6B7280),
+                    modifier = Modifier.size(44.dp)
                 )
+
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
-                        text = "Chat interactivo",
+                        text = "Historial de consultas",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onBackground
                     )
+
                     Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
-                        text = "Describí tus síntomas y recibí una prioridad triage estimada",
+                        text = "Consultá tus atenciones anteriores",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = "Ver historial",
+                    tint = Color(0xFF6B7280),
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        // ESPACIO ENTRE MENÚ Y ATENCIÓN EN CURSO
+        Spacer(modifier = Modifier.height(20.dp))
 
         // ATENCIÓN EN CURSO
         Text(
@@ -250,64 +309,20 @@ fun HomeContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (tieneHospitalSeleccionado) {
+        when (state) {
+            is HomeState.Success -> ConsultaActivaCard(
+                estado = state.estado,
+                hospital = state.hospital,
+                onClick = onConsultaActiva
+            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            is HomeState.SinConsultaActiva,
+            is HomeState.Error -> SinConsultaCard()
 
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onConsultaActiva()
-                    },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-
-                    Icon(
-                        imageVector = Icons.Filled.LocalHospital,
-                        contentDescription = null,
-                        tint = Color(0xFF5BB8D4),
-                        modifier = Modifier.size(40.dp)
-                    )
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = "Tu atención",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Gestioná tu consulta y preparate para la atención",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Icon(
-                        imageVector = Icons.Filled.ChevronRight,
-                        contentDescription = "Ver opciones",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            HomeState.Loading -> SinConsultaCard()
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -319,25 +334,19 @@ fun Carousel(carouselImages: List<DrawableResource>) {
         pageCount = { carouselImages.size }
     )
 
-    // Avance automático
     LaunchedEffect(Unit) {
         while (true) {
             delay(3000)
-
-            val nextPage =
-                (pagerState.currentPage + 1) % carouselImages.size
-
+            val nextPage = (pagerState.currentPage + 1) % carouselImages.size
             pagerState.animateScrollToPage(nextPage)
         }
     }
 
     Column {
-
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth()
         ) { page ->
-
             Card(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -355,35 +364,232 @@ fun Carousel(carouselImages: List<DrawableResource>) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Indicadores
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
-
             repeat(carouselImages.size) { index ->
-
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
-                        .size(
-                            if (index == pagerState.currentPage)
-                                10.dp
-                            else
-                                8.dp
-                        )
+                        .size(if (index == pagerState.currentPage) 10.dp else 8.dp)
                         .clip(CircleShape)
                         .background(
-                            if (index == pagerState.currentPage)
-                                Color(0xFF5BB8D4)
-                            else
-                                Color(0xFFD0D0D0)
+                            if (index == pagerState.currentPage) Color(0xFF5BB8D4) else Color(0xFFD0D0D0)
                         )
-                        .clickable {
-                            // opcional: si querés que al tocar un punto cambie de imagen
-                        }
+                        .clickable { }
                 )
             }
         }
     }
+}
+
+@Composable
+fun ConsultaActivaCard(
+    estado: com.proyecto_final.triage.network.estadoConsulta.EstadoConsultaPacienteDTO,
+    hospital: com.proyecto_final.triage.network.estadoConsulta.HospitalSeleccionadoResponse?,
+    onClick: () -> Unit
+) {
+    val (etiqueta, colorEstado) = estadoVisual(
+        estado.estadoEntradaCola,
+        estado.tipoPausa,
+        estado.estadoConsulta
+    )
+
+    val estimacion = estado.tiempoEstimadoAtencion
+    val minutosRestantes = estimacion?.let {
+        minutosHasta(it.fechaHoraAtencionEstimada)
+    }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFE3F2FD)
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = Color(0xFFBBDEFB)
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 6.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .heightIn(min = 120.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            // Ícono
+            Icon(
+                imageVector = Icons.Filled.People,
+                contentDescription = "Personas en espera",
+                tint = Color(0xFF6B7280),
+                modifier = Modifier.size(44.dp)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Información
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+
+                // Nombre del hospital
+                Text(
+                    text = hospital?.nombre ?: "Tu consulta",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color(0xFF3AA76D)
+                )
+
+                // Dirección
+                Text(
+                    text = hospital?.direccion
+                        ?.substringBefore(",")
+                        ?: "Dirección no disponible",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Estado
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(colorEstado)
+                    )
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    Text(
+                        text = etiqueta,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                when {
+                    estimacion == null -> Unit
+
+                    !estimacion.hayMedicosActivos -> {
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = estimacion.mensaje
+                                ?: "Sin médicos disponibles por el momento",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFE8A33D)
+                        )
+                    }
+
+                    else -> {
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.People,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = Color(0xFF6B7280)
+                            )
+
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            Text(
+                                text = "${estimacion.pacientesAntes} adelante",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            if (minutosRestantes != null) {
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Icon(
+                                    imageVector = Icons.Filled.Schedule,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = Color(0xFF6B7280)
+                                )
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                Text(
+                                    text = "$minutosRestantes min",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Flecha
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = "Ver detalle",
+                tint = Color(0xFF6B7280),
+                modifier = Modifier.size(28.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun SinConsultaCard() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFD6D9DE)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "No tenés consultas activas",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFF6B7280)
+        )
+    }
+}
+
+private fun estadoVisual(
+    estadoEntradaCola: String?,
+    tipoPausa: String?,
+    estadoConsulta: String?
+): Pair<String, Color> = when {
+    estadoEntradaCola == "EN_COLA" -> "En cola" to Color(0xFF3AA76D)
+    estadoEntradaCola == "LLAMADO" -> "Te están llamando" to Color(0xFF5BB8D4)
+    estadoEntradaCola == "EN_ATENCION" -> "En atención" to Color(0xFF3AA76D)
+    estadoEntradaCola == "EN_ESPERA" && tipoPausa == "ESPERA_MANUAL" -> "Te ausentaste" to Color(0xFFE8A33D)
+    estadoEntradaCola == "EN_ESPERA" && tipoPausa == "AUSENTE_AL_LLAMADO" -> "Confirmá tu llegada" to Color(0xFFD9534F)
+    estadoEntradaCola == "ATRASADO" -> "Atrasado, confirmá" to Color(0xFFD9534F)
+    estadoConsulta == "HOSPITAL_SELECCIONADO" -> "Completá el pretriage" to Color(0xFF5BB8D4)
+    estadoConsulta == "PRETRIAGE_EN_PROCESO" -> "Pretriage en curso" to Color(0xFF5BB8D4)
+    estadoConsulta == "PRETRIAGE_FINALIZADO" -> "Preparando tu turno" to Color(0xFF5BB8D4)
+    else -> "Consulta activa" to Color(0xFF5BB8D4)
+}
+
+fun minutosHasta(fechaHoraIso: String?): Int? {
+    if (fechaHoraIso.isNullOrBlank()) return null
+    return runCatching {
+        val objetivo = LocalDateTime.parse(fechaHoraIso).toInstant(TimeZone.currentSystemDefault())
+        val ahora = kotlin.time.Clock.System.now()
+        val minutos = (objetivo - ahora).inWholeMinutes
+        if (minutos < 0) 0 else minutos.toInt()
+    }.getOrNull()
 }

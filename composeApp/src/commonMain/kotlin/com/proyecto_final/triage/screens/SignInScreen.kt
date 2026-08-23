@@ -54,6 +54,7 @@ import com.proyecto_final.triage.viewmodels.SignInState
 import com.proyecto_final.triage.viewmodels.SignInViewModel
 import kotlinx.coroutines.launch
 import com.proyecto_final.triage.storage.TokenStorage
+import androidx.compose.ui.graphics.Brush
 
 class SignInScreen : Screen {
     @Composable
@@ -127,7 +128,7 @@ fun SignInContent(
         Spacer(modifier = Modifier.height(Spacing.sm))
 
         Text(
-            text = "Iniciá sesión",
+            text = "Iniciar sesión",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground
         )

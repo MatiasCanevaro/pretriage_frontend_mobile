@@ -1,4 +1,4 @@
-package com.proyecto_final.triage.network
+package com.proyecto_final.triage.network.estadoConsulta
 
 import kotlinx.serialization.Serializable
 
@@ -10,6 +10,28 @@ data class EstadoConsultaPacienteDTO(
     val tipoPausa: String? = null,
     val fechaHoraLimiteRespuesta: String? = null,
     val tiempoEstimadoAtencion: TiempoEstimadoAtencionResponse? = null
+)
+
+@Serializable
+data class TiempoEstimadoAtencionResponse(
+    val consultaId: Long? = null,
+    val fechaHoraAtencionEstimada: String? = null,
+    val hayMedicosActivos: Boolean = false,
+    val medicosActivos: Int = 0,
+    val medicosParaEstimacion: Int = 0,
+    val posicionEnCola: Int = 0,
+    val pacientesAntes: Int = 0,
+    val minutosPromedioAtencion: Int = 0,
+    val codigoSala: String? = null,
+    val mensaje: String? = null
+)
+
+@Serializable
+data class HospitalSeleccionadoResponse(
+    val idHospital: Long,
+    val placeId: String? = null,
+    val nombre: String,
+    val direccion: String? = null
 )
 
 @Serializable
@@ -44,16 +66,3 @@ enum class TipoPausaCola {
     ESPERA_MANUAL,
     ATRASADO_CONFIRMADO
 }
-
-@Serializable
-data class TiempoEstimadoAtencionResponse(
-    val consultaId: Long,
-    val fechaHoraAtencionEstimada: String?,
-    val hayMedicosActivos: Boolean,
-    val medicosActivos: Int,
-    val medicosParaEstimacion: Int,
-    val posicionEnCola: Int,
-    val pacientesAntes: Int,
-    val minutosPromedioAtencion: Int,
-    val mensaje: String
-)
