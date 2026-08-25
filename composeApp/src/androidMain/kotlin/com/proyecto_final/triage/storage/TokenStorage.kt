@@ -1,8 +1,8 @@
-package com.proyecto_final.triage.network
+package com.proyecto_final.triage.storage
 
 import android.content.Context
-import com.proyecto_final.triage.appContext
 import androidx.core.content.edit
+import com.proyecto_final.triage.appContext
 
 actual object TokenStorage {
     private const val PREFS_NAME = "auth_prefs"
@@ -32,4 +32,3 @@ actual object TokenStorage {
         prefs.edit().remove(TOKEN_KEY).apply()
     }
 }
-

@@ -27,7 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.proyecto_final.triage.components.SelectableOption
 import com.proyecto_final.triage.components.SelectableOptionsGrid
 import com.proyecto_final.triage.network.PerfilResponse
-import com.proyecto_final.triage.network.TokenStorage
+import com.proyecto_final.triage.storage.TokenStorage
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.ProfileState

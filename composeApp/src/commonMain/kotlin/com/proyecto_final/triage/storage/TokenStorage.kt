@@ -1,4 +1,4 @@
-package com.proyecto_final.triage.network
+package com.proyecto_final.triage.storage
 
 expect object TokenStorage {
     fun saveToken(token: String, remember: Boolean)

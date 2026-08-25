@@ -2,9 +2,9 @@ package com.proyecto_final.triage.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.proyecto_final.triage.network.LoginRequest
-import com.proyecto_final.triage.network.TokenStorage
-import com.proyecto_final.triage.network.login
+import com.proyecto_final.triage.network.auth.LoginRequest
+import com.proyecto_final.triage.storage.TokenStorage
+import com.proyecto_final.triage.network.auth.login
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

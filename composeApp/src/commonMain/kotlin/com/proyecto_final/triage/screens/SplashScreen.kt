@@ -15,7 +15,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import com.proyecto_final.triage.components.ErrorBanner
 import com.proyecto_final.triage.config.AppConfig
-import com.proyecto_final.triage.network.TokenStorage
+import com.proyecto_final.triage.storage.TokenStorage
 import com.proyecto_final.triage.network.httpClient
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.ServerResponseException

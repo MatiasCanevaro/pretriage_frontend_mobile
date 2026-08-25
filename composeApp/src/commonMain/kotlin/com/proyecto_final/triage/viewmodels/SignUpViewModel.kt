@@ -2,29 +2,50 @@ package com.proyecto_final.triage.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.proyecto_final.triage.network.RegisterRequest
+import com.proyecto_final.triage.network.auth.RegisterRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import com.proyecto_final.triage.network.register
+import com.proyecto_final.triage.network.auth.register
+import kotlinx.coroutines.flow.asStateFlow
 
 class SignUpViewModel : ViewModel() {
 
     private val _state = MutableStateFlow<SignUpState>(SignUpState.Idle)
     val state: StateFlow<SignUpState> = _state
 
+    private val _mensajeExito = MutableStateFlow<String?>(null)
+    val mensajeExito: StateFlow<String?> = _mensajeExito.asStateFlow()
+
+    fun limpiarMensajeExito() {
+        _mensajeExito.value = null
+    }
+
     fun createAccount(request: RegisterRequest) {
         viewModelScope.launch {
             println("REQUEST: $request")
+
             _state.value = SignUpState.Loading
+
             val result = register(request)
-            result.onSuccess { message ->
-                println("SUCCESS Message: $message")
-                _state.value = SignUpState.Success(message)
-            }.onFailure { error ->
-                println("ERROR: ${error.message}")
-                _state.value = SignUpState.Error(error.message ?: "Error desconocido")
-            }
+
+            result
+                .onSuccess { message ->
+                    println("SUCCESS Message: $message")
+
+                    _mensajeExito.value =
+                        "¡Cuenta creada correctamente!"
+
+                    _state.value = SignUpState.Success(message)
+                }
+                .onFailure { error ->
+                    println("ERROR: ${error.message}")
+
+                    _state.value =
+                        SignUpState.Error(
+                            error.message ?: "Error desconocido"
+                        )
+                }
         }
     }
 }
