@@ -11,6 +11,11 @@ import com.proyecto_final.triage.network.obtenerHospitalesCercanos
 import com.proyecto_final.triage.screens.Hospital
 import kotlinx.coroutines.launch
 
+enum class OrdenHospital(val apiValue: String?, val label: String) {
+    DISTANCIA(null, "Distancia"),
+    TIEMPO_ATENCION("tiempo-atencion", "Tiempo de atención")
+}
+
 class HospitalesViewModel : ViewModel() {
 
     var state by mutableStateOf<HospitalesState>(
@@ -21,12 +26,18 @@ class HospitalesViewModel : ViewModel() {
     var hospitalSeleccionado by mutableStateOf(false)
         private set
 
+    var ordenSeleccionado by mutableStateOf(OrdenHospital.DISTANCIA)
+        private set
+
     fun buscarHospitalesCercanos(
         latitud: Double,
         longitud: Double,
         codigoEspecialidad: String,
-        transporte: String = "transporte-publico"
+        transporte: String = "transporte-publico",
+        orden: OrdenHospital = ordenSeleccionado
     ) {
+        ordenSeleccionado = orden
+
         viewModelScope.launch {
 
             state = HospitalesState.Loading
@@ -35,13 +46,31 @@ class HospitalesViewModel : ViewModel() {
                 latitud = latitud,
                 longitud = longitud,
                 codigoEspecialidad = codigoEspecialidad,
-                transporte = transporte
+                transporte = transporte,
+                ordenarPor = orden.apiValue
             )
 
             resultado.onSuccess { hospitales -> state = HospitalesState.Success(hospitales) }
                      .onFailure { state = HospitalesState.Error("No pudimos cargar los hospitales cercanos.")
                 }
         }
+    }
+
+    fun cambiarOrden(
+        nuevoOrden: OrdenHospital,
+        latitud: Double,
+        longitud: Double,
+        codigoEspecialidad: String,
+        transporte: String = "transporte-publico"
+    ) {
+        if (nuevoOrden == ordenSeleccionado) return
+        buscarHospitalesCercanos(
+            latitud = latitud,
+            longitud = longitud,
+            codigoEspecialidad = codigoEspecialidad,
+            transporte = transporte,
+            orden = nuevoOrden
+        )
     }
 
     fun seleccionarHospital(

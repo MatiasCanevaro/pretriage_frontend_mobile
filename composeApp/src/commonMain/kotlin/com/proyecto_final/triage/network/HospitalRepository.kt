@@ -15,7 +15,8 @@ suspend fun obtenerHospitalesCercanos(
     latitud: Double,
     longitud: Double,
     codigoEspecialidad: String,
-    transporte: String = "transporte-publico"
+    transporte: String = "transporte-publico",
+    ordenarPor: String? = null
 ): Result<List<HospitalCercanoDTO>> {
     return try {
 
@@ -24,6 +25,7 @@ suspend fun obtenerHospitalesCercanos(
             parameter("longitud", longitud)
             parameter("codigoEspecialidad", codigoEspecialidad)
             parameter("transporte", transporte)
+            ordenarPor?.let { parameter("ordenarPor", it) }
         }
 
         if (response.status == HttpStatusCode.OK) {

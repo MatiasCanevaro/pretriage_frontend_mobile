@@ -8,13 +8,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
@@ -27,6 +25,7 @@ import com.proyecto_final.triage.network.HospitalCercanoDTO
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.HospitalesState
 import com.proyecto_final.triage.viewmodels.HospitalesViewModel
+import com.proyecto_final.triage.viewmodels.OrdenHospital
 
 class HospitalesScreen(private val type: String, private val ubicacion: String) : Screen {
     @Composable
@@ -35,13 +34,19 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
         val navigator = LocalNavigator.current
         val viewModel = remember { HospitalesViewModel() }
         val state = viewModel.state
+        val ordenSeleccionado = viewModel.ordenSeleccionado
 
         var selectedHospital by remember { mutableStateOf<Hospital?>(null) }
 
-        // ENVIO LA REQUEST PARA BUSCAR HOSPITALES
-        LaunchedEffect(ubicacion, type) {
+        // ENVIO LA REQUEST PARA BUSCAR HOSPITALES — incluye orden
+        LaunchedEffect(ubicacion, type, ordenSeleccionado) {
             val (lat, lon) = ubicacion.split(",").map { it.trim().toDouble() }
-            viewModel.buscarHospitalesCercanos(latitud = lat, longitud = lon, codigoEspecialidad = type)
+            viewModel.buscarHospitalesCercanos(
+                latitud = lat,
+                longitud = lon,
+                codigoEspecialidad = type,
+                orden = ordenSeleccionado
+            )
         }
 
         LaunchedEffect(viewModel.hospitalSeleccionado) {
@@ -67,25 +72,38 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
                                  viewModel.buscarHospitalesCercanos(
                                      latitud = lat,
                                      longitud = lon,
-                                     codigoEspecialidad = type
+                                     codigoEspecialidad = type,
+                                     orden = ordenSeleccionado
                                  )
                     }
                 )
             }
 
             is HospitalesState.Success -> {
-                HospitalesContent( hospitales = state.hospitales.map { it.toHospital() },
-                                   selectedHospital = selectedHospital,
-                                   onBack = { navigator?.pop() },
-                                   onHospitalSelected = { hospital -> selectedHospital = hospital },
-                                   onContinue = {
-                                        selectedHospital?.let { hospital ->
-                                            viewModel.seleccionarHospital(
-                                                hospital = hospital,
-                                                codigoEspecialidad = type
-                                            )
-                                        }
-                                    }
+                HospitalesContent(
+                    hospitales = state.hospitales.map { it.toHospital() },
+                    selectedHospital = selectedHospital,
+                    ordenSeleccionado = ordenSeleccionado,
+                    onOrdenChange = { nuevoOrden ->
+                        val (lat, lon) = ubicacion.split(",").map { it.trim().toDouble() }
+                        selectedHospital = null
+                        viewModel.cambiarOrden(
+                            nuevoOrden = nuevoOrden,
+                            latitud = lat,
+                            longitud = lon,
+                            codigoEspecialidad = type
+                        )
+                    },
+                    onBack = { navigator?.pop() },
+                    onHospitalSelected = { hospital -> selectedHospital = hospital },
+                    onContinue = {
+                        selectedHospital?.let { hospital ->
+                            viewModel.seleccionarHospital(
+                                hospital = hospital,
+                                codigoEspecialidad = type
+                            )
+                        }
+                    }
                 )
             }
         }
@@ -96,6 +114,8 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
 fun HospitalesContent(
     hospitales: List<Hospital>,
     selectedHospital: Hospital?,
+    ordenSeleccionado: OrdenHospital,
+    onOrdenChange: (OrdenHospital) -> Unit,
     onBack: () -> Unit,
     onHospitalSelected: (Hospital) -> Unit,
     onContinue: () -> Unit
@@ -119,7 +139,14 @@ fun HospitalesContent(
             totalSteps = 3
         )
 
-        Spacer(modifier = Modifier.height(Spacing.lg))
+        Spacer(modifier = Modifier.height(Spacing.md))
+
+        OrdenHospitalSelector(
+            ordenSeleccionado = ordenSeleccionado,
+            onOrdenChange = onOrdenChange
+        )
+
+        Spacer(modifier = Modifier.height(Spacing.md))
 
         // SOLO ESTA PARTE SCROLLEA
         Column(
@@ -132,7 +159,7 @@ fun HospitalesContent(
             if (hospitales.isEmpty()) {
 
                 Text(
-                    text = "No encontramos hospitales cercanos para esta ubicación.",
+                    text = "No hay hospitales disponibles para atención en este momento.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 24.dp)
@@ -170,6 +197,54 @@ fun HospitalesContent(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun OrdenHospitalSelector(
+    ordenSeleccionado: OrdenHospital,
+    onOrdenChange: (OrdenHospital) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Ordenar por",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilterChip(
+                selected = ordenSeleccionado == OrdenHospital.DISTANCIA,
+                onClick = { onOrdenChange(OrdenHospital.DISTANCIA) },
+                label = { Text(OrdenHospital.DISTANCIA.label) },
+                leadingIcon = if (ordenSeleccionado == OrdenHospital.DISTANCIA) {
+                    {
+                        Icon(
+                            imageVector = Icons.Filled.Done,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    }
+                } else null
+            )
+            FilterChip(
+                selected = ordenSeleccionado == OrdenHospital.TIEMPO_ATENCION,
+                onClick = { onOrdenChange(OrdenHospital.TIEMPO_ATENCION) },
+                label = { Text(OrdenHospital.TIEMPO_ATENCION.label) },
+                leadingIcon = if (ordenSeleccionado == OrdenHospital.TIEMPO_ATENCION) {
+                    {
+                        Icon(
+                            imageVector = Icons.Filled.Done,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    }
+                } else null
+            )
+        }
     }
 }
 
@@ -245,7 +320,7 @@ fun HospitalCard(
                     )
                 }
 
-// Tiempo estimado - derecha
+// Tiempo estimado arribo - derecha
                 hospital.tiempoEstimadoArriboMejorRuta?.let { tiempo ->
 
                     Row(
@@ -263,12 +338,74 @@ fun HospitalCard(
                         Spacer(modifier = Modifier.width(5.dp))
 
                         Text(
-                            text = tiempo,
+                            text = formatearTiempoArribo(tiempo),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
                         )
                     }
+                }
+            }
+
+            // --- Info de atención: cola, espera y fecha estimada ---
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Pacientes en cola
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.People,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${hospital.pacientesEnCola} en cola",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Minutos espera estimados
+                hospital.minutosEsperaEstimados?.let { minutos ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.HourglassEmpty,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = formatearMinutosEspera(minutos),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Fecha/hora atención estimada
+            hospital.fechaHoraAtencionEstimada?.let { fechaHora ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Event,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Atención estimada: ${formatearFechaHoraHospital(fechaHora)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -315,7 +452,10 @@ data class Hospital(
     val nombre: String,
     val direccion: String,
     val especialidades: List<EspecialidadMedicaDTO>,
-    val tiempoEstimadoArriboMejorRuta: String?
+    val tiempoEstimadoArriboMejorRuta: String?,
+    val pacientesEnCola: Int = 0,
+    val minutosEsperaEstimados: Long? = null,
+    val fechaHoraAtencionEstimada: String? = null
 )
 
 private fun HospitalCercanoDTO.toHospital(): Hospital {
@@ -325,6 +465,54 @@ private fun HospitalCercanoDTO.toHospital(): Hospital {
         nombre = nombre,
         direccion = direccion,
         especialidades = especialidades,
-        tiempoEstimadoArriboMejorRuta = tiempoEstimadoArriboMejorRuta
+        tiempoEstimadoArriboMejorRuta = tiempoEstimadoArriboMejorRuta,
+        pacientesEnCola = pacientesEnCola,
+        minutosEsperaEstimados = minutosEsperaEstimados,
+        fechaHoraAtencionEstimada = fechaHoraAtencionEstimada
     )
+}
+
+// Helpers de formateo — reutilizan lógica existente en el proyecto
+
+private fun formatearTiempoArribo(tiempo: String): String {
+    // Backend devuelve LocalTime como "HH:mm:ss" o "HH:mm"
+    val partes = tiempo.split(":")
+    if (partes.size < 2) return tiempo
+    val horas = partes[0].toIntOrNull() ?: 0
+    val minutos = partes[1].toIntOrNull() ?: 0
+    val segundos = partes.getOrNull(2)?.toIntOrNull() ?: 0
+    return when {
+        horas > 0 -> if (minutos > 0) "$horas h $minutos min" else "$horas h"
+        minutos > 0 -> if (segundos >= 30) "${minutos + 1} min" else "$minutos min"
+        else -> "Menos de 1 min"
+    }
+}
+
+private fun formatearMinutosEspera(minutos: Long): String {
+    return when {
+        minutos <= 0 -> "Sin espera"
+        minutos < 60 -> "$minutos min espera"
+        else -> {
+            val h = minutos / 60
+            val m = minutos % 60
+            if (m > 0) "$h h $m min espera" else "$h h espera"
+        }
+    }
+}
+
+// "2024-06-15T14:30:00" -> "15/06/2024 14:30" (similar a ChatScreen.kt:498)
+private fun formatearFechaHoraHospital(fechaHora: String): String {
+    return try {
+        val sinZona = fechaHora.substringBefore("Z").substringBefore("+")
+        val partes = sinZona.replace("T", " ").substringBeforeLast(":").split("-")
+        if (partes.size != 3) return fechaHora
+        val anio = partes[0]
+        val mes = partes[1]
+        val diaHora = partes[2]
+        val partesDiaHora = diaHora.split(" ")
+        if (partesDiaHora.size != 2) return fechaHora
+        "${partesDiaHora[0]}/${mes}/${anio} ${partesDiaHora[1]}"
+    } catch (_: Exception) {
+        fechaHora
+    }
 }
