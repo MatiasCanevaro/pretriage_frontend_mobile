@@ -44,7 +44,7 @@ suspend fun obtenerHospitalSeleccionado(): Result<HospitalSeleccionadoResponse> 
 
 suspend fun ausentarme(): Result<EstadoConsultaPacienteDTO> {
     return try {
-        val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/ausentarme")
+        val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/cola/pausa-manual")
 
         if (response.status == HttpStatusCode.OK) {
             Result.success(response.body<EstadoConsultaPacienteDTO>())
@@ -59,7 +59,7 @@ suspend fun ausentarme(): Result<EstadoConsultaPacienteDTO> {
 
 suspend fun estoyAtrasado(): Result<EstadoConsultaPacienteDTO> {
     return try {
-        val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/estoy-atrasado")
+        val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/cola/atraso/confirmar")
 
         if (response.status == HttpStatusCode.OK) {
             Result.success(response.body<EstadoConsultaPacienteDTO>())
@@ -74,7 +74,7 @@ suspend fun estoyAtrasado(): Result<EstadoConsultaPacienteDTO> {
 
 suspend fun sigoAsistiendo(): Result<EstadoConsultaPacienteDTO> {
     return try {
-        val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/sigo-asistiendo")
+        val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/cola/atraso/renovar")
 
         if (response.status == HttpStatusCode.OK) {
             Result.success(response.body<EstadoConsultaPacienteDTO>())
@@ -89,7 +89,7 @@ suspend fun sigoAsistiendo(): Result<EstadoConsultaPacienteDTO> {
 
 suspend fun llegue(): Result<EstadoConsultaPacienteDTO> {
     return try {
-        val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/llegue")
+        val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/cola/reincorporar")
 
         if (response.status == HttpStatusCode.OK) {
             Result.success(response.body<EstadoConsultaPacienteDTO>())
