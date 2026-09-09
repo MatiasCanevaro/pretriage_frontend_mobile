@@ -27,13 +27,17 @@ sealed class ForgotPasswordState {
 
 class ForgotPasswordViewModel : ViewModel() {
 
+    companion object {
+        const val DEFAULT_EXPIRATION_SEC = 15 * 60 // fallback si backend no envía tiempo
+    }
+
     private val _step = MutableStateFlow(ForgotPasswordStep.Email)
     val step: StateFlow<ForgotPasswordStep> = _step.asStateFlow()
 
     private val _state = MutableStateFlow<ForgotPasswordState>(ForgotPasswordState.Idle)
     val state: StateFlow<ForgotPasswordState> = _state.asStateFlow()
 
-    private val _countdownSec = MutableStateFlow(15 * 60)// 15 minutos
+    private val _countdownSec = MutableStateFlow(DEFAULT_EXPIRATION_SEC)
     val countdownSec: StateFlow<Int> = _countdownSec.asStateFlow()
 
     private var countdownJob: Job? = null
@@ -56,11 +60,11 @@ class ForgotPasswordViewModel : ViewModel() {
         viewModelScope.launch {
             _state.value = ForgotPasswordState.Loading
             val result = solicitarTokenApi(emailInput)
-            result.onSuccess { msg ->
+            result.onSuccess { res ->
                 email = emailInput
                 _state.value = ForgotPasswordState.Idle
                 _step.value = ForgotPasswordStep.Token
-                startCountdown()
+                startCountdown(res.expiracionSec)
             }.onFailure { e ->
                 _state.value = ForgotPasswordState.Error(e.message ?: "No se pudo enviar el correo")
             }
@@ -124,9 +128,9 @@ class ForgotPasswordViewModel : ViewModel() {
         }
     }
 
-    private fun startCountdown() {
+    private fun startCountdown(expirationSec: Int = DEFAULT_EXPIRATION_SEC) {
         countdownJob?.cancel()
-        _countdownSec.value = 15 * 60
+        _countdownSec.value = expirationSec
         countdownJob = viewModelScope.launch {
             while (_countdownSec.value > 0) {
                 delay(1000)
@@ -152,7 +156,7 @@ class ForgotPasswordViewModel : ViewModel() {
     fun reset() {
         _step.value = ForgotPasswordStep.Email
         _state.value = ForgotPasswordState.Idle
-        _countdownSec.value = 15 * 60
+        _countdownSec.value = DEFAULT_EXPIRATION_SEC
         stopCountdown()
         email = ""
         token = ""

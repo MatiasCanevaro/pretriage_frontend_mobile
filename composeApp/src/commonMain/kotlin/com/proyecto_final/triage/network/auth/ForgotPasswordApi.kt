@@ -23,8 +23,32 @@ data class SolicitarTokenRequest(
 @Serializable
 data class SolicitarTokenResponse(
     val message: String? = null,
+    val tiempoExpiracion: String? = null,
     val error: String? = null
 )
+
+data class SolicitarTokenResult(
+    val message: String,
+    val expiracionSec: Int
+)
+
+private const val DEFAULT_EXPIRATION_SEC = 15 * 60
+
+internal fun parseTiempoExpiracion(raw: String?): Int {
+    if (raw.isNullOrBlank()) return DEFAULT_EXPIRATION_SEC
+    return try {
+        val p = raw.trim().split(":")
+        val total = when (p.size) {
+            3 -> p[0].toInt() * 3600 + p[1].toInt() * 60 + p[2].toInt() // HH:mm:ss
+            2 -> p[0].toInt() * 3600 + p[1].toInt() * 60 // HH:mm -> 00:15 = 15min
+            1 -> p[0].toInt()
+            else -> return DEFAULT_EXPIRATION_SEC
+        }
+        if (total <= 0) DEFAULT_EXPIRATION_SEC else total
+    } catch (_: Exception) {
+        DEFAULT_EXPIRATION_SEC
+    }
+}
 
 @Serializable
 data class ValidarTokenResponse(
@@ -45,7 +69,7 @@ data class CambiarContraseniaResponse(
     val error: String? = null
 )
 
-suspend fun solicitarToken(email: String): Result<String> {
+suspend fun solicitarToken(email: String): Result<SolicitarTokenResult> {
     return try {
         println("SOLICITAR TOKEN REQUEST: $email")
         val response = httpClient.post("${AppConfig.baseUrl}/api/auth/cambio-contrasenia/solicitar-token") {
@@ -58,7 +82,9 @@ suspend fun solicitarToken(email: String): Result<String> {
 
         if (response.status == HttpStatusCode.OK || response.status.value in 200..299) {
             val body = runCatching { json.decodeFromString<SolicitarTokenResponse>(bodyText) }.getOrNull()
-            return Result.success(body?.message ?: "Token enviado correctamente")
+            val message = body?.message ?: "Token enviado correctamente"
+            val expiracionSec = parseTiempoExpiracion(body?.tiempoExpiracion)
+            return Result.success(SolicitarTokenResult(message, expiracionSec))
         }
 
         val errorBody = runCatching { json.decodeFromString<SolicitarTokenResponse>(bodyText) }.getOrNull()
