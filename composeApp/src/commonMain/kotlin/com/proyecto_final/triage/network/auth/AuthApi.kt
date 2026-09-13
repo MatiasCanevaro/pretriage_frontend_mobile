@@ -33,7 +33,7 @@ suspend fun register(request: RegisterRequest): Result<String> {
 
 private val json = Json { ignoreUnknownKeys = true }
 
-suspend fun login(request: LoginRequest): Result<String> {
+suspend fun login(request: LoginRequest): Result<LoginResponse> {
     return try {
         println("LOGIN REQUEST: $request")
         val response = httpClient.post("${AppConfig.baseUrl}/api/login") {
@@ -46,12 +46,7 @@ suspend fun login(request: LoginRequest): Result<String> {
 
         if (response.status == HttpStatusCode.OK) {
             val body = json.decodeFromString<LoginResponse>(bodyText)
-
-            body.token?.let {
-                return Result.success(it)
-            }
-
-            return Result.failure(Exception("No se recibió token"))
+            return Result.success(body)
         }
 
         return Result.failure(Exception("Credenciales inválidas"))

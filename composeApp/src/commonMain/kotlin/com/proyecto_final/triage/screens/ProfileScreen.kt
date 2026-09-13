@@ -28,6 +28,7 @@ import com.proyecto_final.triage.components.SelectableOption
 import com.proyecto_final.triage.components.SelectableOptionsGrid
 import com.proyecto_final.triage.network.PerfilResponse
 import com.proyecto_final.triage.storage.TokenStorage
+import com.proyecto_final.triage.storage.TokenStorageProvider
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.ProfileState
@@ -62,7 +63,7 @@ class ProfileScreen : Screen {
             onHealthPlan = { navigator?.push(HealthPlanScreen()) },
             onMyStudies = { navigator?.push(MyStudiesScreen()) },
             onLogOut = {
-                TokenStorage.clearToken()
+                TokenStorageProvider.instance.clearTokens()
                 navigator?.popUntilRoot()
                 navigator?.replace(SignInScreen())
             },

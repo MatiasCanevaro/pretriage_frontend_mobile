@@ -1,7 +1,12 @@
 package com.proyecto_final.triage.storage
 
-expect object TokenStorage {
-    fun saveToken(token: String, remember: Boolean)
+interface TokenStorage {
+
+    fun saveTokens(token: String, refreshToken: String, remember: Boolean)
+
     fun getToken(): String?
-    fun clearToken()
+
+    fun getRefreshToken(): String?
+
+    fun clearTokens()
 }

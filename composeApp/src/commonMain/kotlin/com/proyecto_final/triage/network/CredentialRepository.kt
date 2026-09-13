@@ -50,8 +50,6 @@ suspend fun cargarCredencial(request: CredencialRequest): CredencialUpdateResult
 
         val response = httpClient.post("${AppConfig.baseUrl}/api/obrasocial/credenciales") {
             contentType(ContentType.Application.Json)
-            println("TOKEN: ${TokenStorage.getToken()}" )
-            header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
             setBody(request)
         }
 
@@ -74,7 +72,6 @@ suspend fun actualizarCredencial(idCredencial: Long, request: CredencialRequest)
 
         val response = httpClient.put("${AppConfig.baseUrl}/api/obrasocial/credenciales/$idCredencial") {
             contentType(ContentType.Application.Json)
-            header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
             setBody(request)
         }
 
@@ -96,7 +93,6 @@ suspend fun eliminarCredencial(idCredencial: Long): CredencialUpdateResult {
         println("CREDENCIAL DELETE REQUEST ($idCredencial)")
 
         val response = httpClient.delete("${AppConfig.baseUrl}/api/obrasocial/credenciales/$idCredencial") {
-            header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
         }
 
         println("CREDENCIAL DELETE STATUS: ${response.status}")
@@ -115,12 +111,7 @@ suspend fun eliminarCredencial(idCredencial: Long): CredencialUpdateResult {
 suspend fun obtenerCredenciales(): Result<List<Credencial>> {
     return try {
         println("ENTRÉ AL GET")
-        val response = httpClient.get("${AppConfig.baseUrl}/api/obrasocial/credenciales") {
-            header(
-                HttpHeaders.Authorization,
-                "Bearer ${TokenStorage.getToken()}"
-            )
-        }
+        val response = httpClient.get("${AppConfig.baseUrl}/api/obrasocial/credenciales")
         println("GET STATUS: ${response.status}")
         println("GET BODY: ${response.bodyAsText()}")
         if (response.status == HttpStatusCode.OK) {

@@ -9,6 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.proyecto_final.triage.screens.StartupState
+import com.proyecto_final.triage.storage.AndroidTokenStorage
+import com.proyecto_final.triage.storage.TokenStorageProvider
 import org.maplibre.android.MapLibre
 import org.maplibre.android.WellKnownTileServer
 
@@ -23,6 +25,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         appContext = applicationContext
+
+        TokenStorageProvider.instance = AndroidTokenStorage()
 
         MapLibre.getInstance(this, null, WellKnownTileServer.MapLibre)
 

@@ -17,6 +17,7 @@ import com.proyecto_final.triage.components.ErrorBanner
 import com.proyecto_final.triage.config.AppConfig
 import com.proyecto_final.triage.storage.TokenStorage
 import com.proyecto_final.triage.network.httpClient
+import com.proyecto_final.triage.storage.TokenStorageProvider
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.ServerResponseException
 import io.ktor.client.request.get
@@ -85,7 +86,7 @@ class SplashScreen : Screen {
 }
 
 private fun continuar(navigator: Navigator?) {
-    if (TokenStorage.getToken() != null) {
+    if (TokenStorageProvider.instance.getToken() != null) {
         navigator?.replace(HomeScreen())
     } else {
         navigator?.replace(SignInScreen())

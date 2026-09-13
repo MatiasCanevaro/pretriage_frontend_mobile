@@ -54,6 +54,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.text.withStyle
+import com.proyecto_final.triage.storage.TokenStorageProvider
 import kotlinx.coroutines.launch
 
 
@@ -446,13 +447,12 @@ fun SignInContent(
                     AppConfig.environment ==
                     Environment.DEV
                 ) {
-
-                    onSignIn()
-
-                    TokenStorage.saveToken(
+                    TokenStorageProvider.instance.saveTokens(
                         DevToken.TOKEN,
+                        DevToken.REFRESH_TOKEN,
                         false
                     )
+                    onSignIn()
 
                 } else if (
                     email.isNotBlank() &&

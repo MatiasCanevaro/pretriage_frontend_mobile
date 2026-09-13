@@ -112,9 +112,7 @@ internal fun parsearErroresDeCampo(bodyText: String, campos: Set<String>): Map<S
 
 suspend fun obtenerPerfil(): Result<PerfilResponse> {
     return try {
-        val response = httpClient.get("${AppConfig.baseUrl}/api/perfil") {
-            header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
-        }
+        val response = httpClient.get("${AppConfig.baseUrl}/api/perfil")
         if (response.status == HttpStatusCode.OK) {
             val bodyText = response.bodyAsText()
             val perfil = json.decodeFromString<PerfilResponse>(bodyText)
@@ -134,7 +132,6 @@ suspend fun actualizarPerfil(request: PerfilUsuarioRequest): PerfilUpdateResult 
     return try {
         val response = httpClient.put("${AppConfig.baseUrl}/api/perfil") {
             contentType(ContentType.Application.Json)
-            header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
             setBody(request)
         }
 

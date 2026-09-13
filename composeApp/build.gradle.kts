@@ -19,7 +19,9 @@ val devToken: String = localProperties.getProperty("DEV_TOKEN")?.trim() ?: ""
 val generateDevToken = tasks.register("generateDevToken") {
     val outputDir = layout.buildDirectory.dir("generated/devToken")
     val tokenValue = devToken
+    val refreshTokenValue = project.findProperty("DEV_REFRESH_TOKEN") as String? ?: ""
     inputs.property("devToken", tokenValue)
+    inputs.property("devRefreshToken", refreshTokenValue)
     outputs.dir(outputDir)
     doLast {
         val file = outputDir.get().file("com/proyecto_final/triage/config/DevToken.kt").asFile
@@ -30,6 +32,7 @@ val generateDevToken = tasks.register("generateDevToken") {
 
             object DevToken {
                 const val TOKEN = "$tokenValue"
+                const val REFRESH_TOKEN = "$refreshTokenValue"
             }
             """.trimIndent()
         )
@@ -95,6 +98,7 @@ kotlin {
             implementation(libs.compose.foundation)
             implementation(libs.kotlinx.datetime)
             implementation(libs.cmpfilepicker)
+            implementation(libs.ktor.client.auth)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

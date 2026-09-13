@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import com.proyecto_final.triage.storage.TokenStorage
+import com.proyecto_final.triage.storage.TokenStorageProvider
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.utils.dialEmergency
 import com.proyecto_final.triage.viewmodels.HomeState
@@ -99,8 +100,8 @@ class HomeScreen : Screen {
         /*
          * Si no hay token, volvemos al login.
          */
-        if (TokenStorage.getToken() == null) {
-            navigator?.push(SignInScreen())
+        if (TokenStorageProvider.instance.getToken() == null) {
+            navigator?.replace(SignInScreen())
             return
         }
 

@@ -11,6 +11,8 @@ data class LoginRequest(
 @Serializable
 data class LoginResponse(
     val token: String? = null,
+    val refreshToken: String? = null,
+    val renovarTokenEn: Long? = null,
     val error: String? = null
 )
 
@@ -31,4 +33,9 @@ data class RegisterResponse(
     val token: String? = null,
     val message: String? = null,
     val error: String? = null
+)
+
+@Serializable
+data class RefreshTokenRequest(
+    val refreshToken: String
 )

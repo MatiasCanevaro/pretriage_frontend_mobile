@@ -66,7 +66,6 @@ suspend fun iniciarChat(): Result<ChatResponse> {
         println("CHAT INICIAR")
         val response = httpClient.post("${AppConfig.baseUrl}/api/chat") {
             contentType(ContentType.Application.Json)
-            header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
         }
 
         println("CHAT INICIAR STATUS: ${response.status}")
@@ -92,7 +91,6 @@ suspend fun obtenerChat(id: Long): Result<ChatResponse> {
     return try {
         println("CHAT OBTENER ($id)")
         val response = httpClient.get("${AppConfig.baseUrl}/api/chat/$id") {
-            header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
         }
 
         println("CHAT OBTENER STATUS: ${response.status}")
@@ -119,7 +117,6 @@ suspend fun enviarMensaje(id: Long, contenido: String): Result<RespuestaChatResp
         println("CHAT ENVIAR ($id): $contenido")
         val response = httpClient.post("${AppConfig.baseUrl}/api/chat/$id/mensajes") {
             contentType(ContentType.Application.Json)
-            header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
             setBody(EnviarMensajeRequest(contenido = contenido))
         }
 
