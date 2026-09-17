@@ -42,6 +42,7 @@ import kotlinx.serialization.Serializable
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.Res
 import triage.composeapp.generated.resources.credential
+import com.proyecto_final.triage.AppConstants
 
 @Serializable
 data class Credencial(
@@ -447,7 +448,7 @@ fun HealthPlanContent(onBack: () -> Unit,
                     }
                 },
                 isError = (showErrors && !isNombreValid) || backendFieldErrors.containsKey("nombreObraSocial"),
-                errorMessage = backendFieldErrors["nombreObraSocial"] ?: "Este campo es obligatorio",
+                errorMessage = backendFieldErrors["nombreObraSocial"] ?: AppConstants.CAMPO_OBLIGATORIO,
                 placeholder = "Seleccioná una obra social"
             )
 
@@ -467,7 +468,7 @@ fun HealthPlanContent(onBack: () -> Unit,
                 placeholder = "Ingresá tu número",
                 isError = (showErrors && !isNumeroValid) || backendFieldErrors.containsKey("numeroAfiliado"),
                 errorMessage = backendFieldErrors["numeroAfiliado"]
-                    ?: if (numeroAfiliado.isBlank()) "Este campo es obligatorio" else "Mínimo 6 caracteres"
+                    ?: if (numeroAfiliado.isBlank()) AppConstants.CAMPO_OBLIGATORIO else "Mínimo 6 caracteres"
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -484,7 +485,7 @@ fun HealthPlanContent(onBack: () -> Unit,
                     }
                 },
                 isError = (showErrors && plan.isBlank()) || backendFieldErrors.containsKey("plan"),
-                errorMessage = backendFieldErrors["plan"] ?: "Este campo es obligatorio",
+                errorMessage = backendFieldErrors["plan"] ?: AppConstants.CAMPO_OBLIGATORIO,
                 placeholder = "Seleccioná un plan"
             )
 
@@ -502,7 +503,7 @@ fun HealthPlanContent(onBack: () -> Unit,
                 enabled = fieldsEnabled,
                 isError = (showErrors && fechaVencimiento.isBlank()) || backendFieldErrors.containsKey("fechaVencimiento"),
                 errorMessage = backendFieldErrors["fechaVencimiento"]
-                    ?: if (fechaVencimiento.isBlank()) "Este campo es obligatorio" else "",
+                    ?: if (fechaVencimiento.isBlank()) AppConstants.CAMPO_OBLIGATORIO else "",
                 placeholder = "MM/AAAA"
             )
         }
@@ -643,7 +644,7 @@ private fun DropdownSelectField(
     enabled: Boolean,
     onValueChange: (String) -> Unit,
     isError: Boolean = false,
-    errorMessage: String = "Este campo es obligatorio",
+    errorMessage: String = AppConstants.CAMPO_OBLIGATORIO,
     placeholder: String? = null
 ) {
     var expanded by remember { mutableStateOf(false) }

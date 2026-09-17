@@ -23,6 +23,10 @@ private val camposDeCredencial = setOf(
     "nombreObraSocial", "numeroAfiliado", "plan", "fechaVencimiento"
 )
 
+//constantes
+const val CONEXION_ERROR_MENSAJE = "Error de conexión"
+
+
 sealed class CredencialUpdateResult {
     data class Success(val mensaje: String) : CredencialUpdateResult()
     data class FieldErrors(val errors: Map<String, String>) : CredencialUpdateResult()
@@ -64,7 +68,7 @@ suspend fun cargarCredencial(request: CredencialRequest): CredencialUpdateResult
 
     } catch (e: Exception) {
         println("CREDENCIAL EXCEPTION: ${e.message}")
-        CredencialUpdateResult.Error(e.message ?: "Error de conexión")
+        CredencialUpdateResult.Error(e.message ?: CONEXION_ERROR_MENSAJE)
     }
 }
 
@@ -87,7 +91,7 @@ suspend fun actualizarCredencial(idCredencial: Long, request: CredencialRequest)
 
     } catch (e: Exception) {
         println("CREDENCIAL UPDATE EXCEPTION: ${e.message}")
-        CredencialUpdateResult.Error(e.message ?: "Error de conexión")
+        CredencialUpdateResult.Error(e.message ?: CONEXION_ERROR_MENSAJE)
     }
 }
 
@@ -108,7 +112,7 @@ suspend fun eliminarCredencial(idCredencial: Long): CredencialUpdateResult {
 
     } catch (e: Exception) {
         println("CREDENCIAL DELETE EXCEPTION: ${e.message}")
-        CredencialUpdateResult.Error(e.message ?: "Error de conexión")
+        CredencialUpdateResult.Error(e.message ?: CONEXION_ERROR_MENSAJE)
     }
 }
 
