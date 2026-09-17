@@ -2,14 +2,12 @@ package com.proyecto_final.triage.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,10 +24,10 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.proyecto_final.triage.components.SelectableOption
 import com.proyecto_final.triage.components.SelectableOptionsGrid
+import com.proyecto_final.triage.components.ScreenTitleBar
 import com.proyecto_final.triage.network.PerfilResponse
 import com.proyecto_final.triage.storage.TokenStorage
 import com.proyecto_final.triage.theme.AppTheme
-import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.ProfileState
 import com.proyecto_final.triage.viewmodels.ProfileViewModel
 import org.jetbrains.compose.resources.painterResource
@@ -129,24 +127,11 @@ fun ProfileContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(Spacing.lg))
-
         // Header con título y botón cerrar sesión
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        ScreenTitleBar(
+            title = "Mi perfil",
+            onBack = onBack
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Volver",
-                modifier = Modifier.clickable { onBack() }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Mi perfil",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f)
-            )
             OutlinedButton(
                 onClick = onLogOut,
                 shape = RoundedCornerShape(8.dp),

@@ -7,6 +7,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -61,6 +62,24 @@ data class RespuestaChatResponse(
 
 private val json = Json { ignoreUnknownKeys = true }
 
+private suspend inline fun <reified T> procesarRespuesta(
+    tag: String,
+    response: HttpResponse,
+    mensajeError: String
+): Result<T> {
+    println("$tag STATUS: ${response.status}")
+    val bodyText = response.bodyAsText()
+    println("$tag BODY: $bodyText")
+
+    if (response.status == HttpStatusCode.OK) {
+        return Result.success(json.decodeFromString<T>(bodyText))
+    }
+    val errorResponse = runCatching {
+        json.decodeFromString<ErrorResponse>(bodyText)
+    }.getOrNull()
+    return Result.failure(Exception(errorResponse?.error ?: mensajeError))
+}
+
 suspend fun iniciarChat(): Result<ChatResponse> {
     return try {
         println("CHAT INICIAR")
@@ -68,20 +87,7 @@ suspend fun iniciarChat(): Result<ChatResponse> {
             contentType(ContentType.Application.Json)
             header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
         }
-
-        println("CHAT INICIAR STATUS: ${response.status}")
-        val bodyText = response.bodyAsText()
-        println("CHAT INICIAR BODY: $bodyText")
-
-        if (response.status == HttpStatusCode.OK) {
-            val chat = json.decodeFromString<ChatResponse>(bodyText)
-            Result.success(chat)
-        } else {
-            val errorResponse = runCatching {
-                json.decodeFromString<ErrorResponse>(bodyText)
-            }.getOrNull()
-            Result.failure(Exception(errorResponse?.error ?: "No se pudo iniciar el chat"))
-        }
+        procesarRespuesta("CHAT INICIAR", response, "No se pudo iniciar el chat")
     } catch (e: Exception) {
         println("CHAT INICIAR EXCEPTION: ${e.message}")
         Result.failure(e)
@@ -94,20 +100,7 @@ suspend fun obtenerChat(id: Long): Result<ChatResponse> {
         val response = httpClient.get("${AppConfig.baseUrl}/api/chat/$id") {
             header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
         }
-
-        println("CHAT OBTENER STATUS: ${response.status}")
-        val bodyText = response.bodyAsText()
-        println("CHAT OBTENER BODY: $bodyText")
-
-        if (response.status == HttpStatusCode.OK) {
-            val chat = json.decodeFromString<ChatResponse>(bodyText)
-            Result.success(chat)
-        } else {
-            val errorResponse = runCatching {
-                json.decodeFromString<ErrorResponse>(bodyText)
-            }.getOrNull()
-            Result.failure(Exception(errorResponse?.error ?: "No se pudo recuperar el chat"))
-        }
+        procesarRespuesta("CHAT OBTENER", response, "No se pudo recuperar el chat")
     } catch (e: Exception) {
         println("CHAT OBTENER EXCEPTION: ${e.message}")
         Result.failure(e)
@@ -122,20 +115,7 @@ suspend fun enviarMensaje(id: Long, contenido: String): Result<RespuestaChatResp
             header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getToken()}")
             setBody(EnviarMensajeRequest(contenido = contenido))
         }
-
-        println("CHAT ENVIAR STATUS: ${response.status}")
-        val bodyText = response.bodyAsText()
-        println("CHAT ENVIAR BODY: $bodyText")
-
-        if (response.status == HttpStatusCode.OK) {
-            val respuesta = json.decodeFromString<RespuestaChatResponse>(bodyText)
-            Result.success(respuesta)
-        } else {
-            val errorResponse = runCatching {
-                json.decodeFromString<ErrorResponse>(bodyText)
-            }.getOrNull()
-            Result.failure(Exception(errorResponse?.error ?: "No se pudo enviar el mensaje"))
-        }
+        procesarRespuesta("CHAT ENVIAR", response, "No se pudo enviar el mensaje")
     } catch (e: Exception) {
         println("CHAT ENVIAR EXCEPTION: ${e.message}")
         Result.failure(e)

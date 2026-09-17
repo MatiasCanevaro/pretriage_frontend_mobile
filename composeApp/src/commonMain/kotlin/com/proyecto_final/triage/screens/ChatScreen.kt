@@ -423,42 +423,9 @@ private fun CardAtencionEstimada(atencion: AtencionEstimada) {
             if (atencion.posicionEnCola > 0 || atencion.pacientesAntes > 0) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Posición en cola",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "${atencion.posicionEnCola}",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Pacientes antes",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "${atencion.pacientesAntes}",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Tiempo estimado",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "${atencion.minutosPromedioAtencion} min",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
+                    MetricColumn(label = "Posición en cola", valor = "${atencion.posicionEnCola}")
+                    MetricColumn(label = "Pacientes antes", valor = "${atencion.pacientesAntes}")
+                    MetricColumn(label = "Tiempo estimado", valor = "${atencion.minutosPromedioAtencion} min")
                 }
             }
 
@@ -480,6 +447,22 @@ private fun CardAtencionEstimada(atencion: AtencionEstimada) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RowScope.MetricColumn(label: String, valor: String) {
+    Column(modifier = Modifier.weight(1f)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = valor,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
     }
 }
 

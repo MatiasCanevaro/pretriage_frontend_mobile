@@ -1,17 +1,14 @@
 package com.proyecto_final.triage.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,6 +20,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import com.proyecto_final.triage.components.InputDateField
 import com.proyecto_final.triage.components.InputDropdownField
 import com.proyecto_final.triage.components.InputTextField
+import com.proyecto_final.triage.components.ScreenTitleBar
 import com.proyecto_final.triage.network.PerfilResponse
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.theme.Spacing
@@ -85,24 +83,10 @@ fun EditProfileContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(Spacing.lg))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Volver",
-                modifier = Modifier.clickable { onBack() }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Editar perfil",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f)
-            )
-        }
+        ScreenTitleBar(
+            title = "Editar perfil",
+            onBack = { onBack() }
+        )
 
         Spacer(modifier = Modifier.height(Spacing.md))
 
