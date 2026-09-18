@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.YearMonth
+import com.proyecto_final.triage.network.obtenerCredencialesApi
 
 class HealthPlanViewModel : ViewModel() {
 
@@ -93,7 +94,7 @@ class HealthPlanViewModel : ViewModel() {
     fun obtenerCredenciales() {
         viewModelScope.launch {
 
-            val result = com.proyecto_final.triage.network.obtenerCredenciales()
+            val result = obtenerCredencialesApi()
 
             result.onSuccess { lista ->
                 _credencialesState.value =

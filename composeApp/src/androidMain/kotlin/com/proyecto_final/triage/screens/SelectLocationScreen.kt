@@ -38,6 +38,7 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import android.location.Geocoder
 import androidx.compose.foundation.border
 import com.proyecto_final.triage.components.ProgressBar
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -46,6 +47,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 private data class SugerenciaDireccion(
     val etiqueta: String,
@@ -76,7 +78,8 @@ class SelectLocationScreen(private val type: String) : Screen {
 fun SelectLocationContent(
     type: String,
     onBack: () -> Unit,
-    onContinue: (String, String) -> Unit
+    onContinue: (String, String) -> Unit,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
 
     var usarUbicacionActual by remember { mutableStateOf(true) }
@@ -118,7 +121,7 @@ fun SelectLocationContent(
     }
 
     // Geocoding: dirección -> lat/lng (usada por "Buscar dirección")
-    suspend fun geocodificarDireccion(query: String): LatLng? = withContext(Dispatchers.IO) {
+    suspend fun geocodificarDireccion(query: String): LatLng? = withContext(dispatcher) {
         if (!Geocoder.isPresent()) return@withContext null
         val geocoder = Geocoder(context, Locale.getDefault())
         try {
@@ -132,7 +135,7 @@ fun SelectLocationContent(
     }
 
     // Geocoding inverso: lat/lng -> dirección legible (calle y altura)
-    suspend fun direccionDesdeUbicacion(location: LatLng): String? = withContext(Dispatchers.IO) {
+    suspend fun direccionDesdeUbicacion(location: LatLng): String? = withContext(dispatcher) {
         if (!Geocoder.isPresent()) return@withContext null
         val geocoder = Geocoder(context, Locale.getDefault())
         try {
@@ -177,7 +180,7 @@ fun SelectLocationContent(
     // Prioriza resultados cerca de "cerca" si tenemos una ubicación de referencia.
     // Lanza excepción con detalle en vez de tragarse el error, para poder mostrarlo.
     suspend fun buscarSugerencias(query: String, cerca: LatLng?): List<SugerenciaDireccion> =
-        withContext(Dispatchers.IO) {
+        withContext(dispatcher) {
             val q = URLEncoder.encode(query, "UTF-8")
             // Esta instancia de Photon soporta countrycode (ISO 3166-1 alpha-2) y bbox.
             // countrycode=AR + bbox de CABA para restringir a Ciudad Autónoma de Buenos Aires.
@@ -259,7 +262,7 @@ fun SelectLocationContent(
         }
         cargandoSugerencias = true
         errorSugerencias = null
-        delay(400) // debounce: espera a que el usuario deje de tipear
+        delay(400.milliseconds) // debounce: espera a que el usuario deje de tipear
         try {
             sugerencias = buscarSugerencias(direccion, userLocation)
             if (sugerencias.isEmpty()) {
