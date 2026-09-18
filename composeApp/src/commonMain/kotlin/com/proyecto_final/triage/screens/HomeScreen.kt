@@ -13,7 +13,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,17 +33,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import com.proyecto_final.triage.network.estadoConsulta.EstadoConsultaPacienteDTO
+import com.proyecto_final.triage.network.estadoConsulta.HospitalSeleccionadoResponse
 import com.proyecto_final.triage.storage.TokenStorage
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.utils.dialEmergency
 import com.proyecto_final.triage.viewmodels.HomeState
 import com.proyecto_final.triage.viewmodels.HomeViewModel
+import io.ktor.util.reflect.instanceOf
 import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -53,6 +60,7 @@ import triage.composeapp.generated.resources.image2
 import triage.composeapp.generated.resources.image3
 import triage.composeapp.generated.resources.image4
 import triage.composeapp.generated.resources.logo
+import kotlin.time.Duration.Companion.milliseconds
 
 
 /*
@@ -404,30 +412,44 @@ fun HomeContent(
         )
 
         /*
-         * ============================================================
-         * SOLICITAR ATENCIÓN
-         * ============================================================
+         * Menú contextual: Chat si hay consulta activa, sino Solicitar atención
          */
 
-        MenuCard(
+        when (state) {
 
-            icon =
-                Icons.Filled.LocalHospital,
+            is HomeState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MENU_BLUE)
+                }
+            }
 
-            titulo =
-                "Solicitar atención de guardia",
+            is HomeState.Success -> {
+                MenuCard(
+                    icon = Icons.AutoMirrored.Filled.Chat,
+                    titulo = "Chat interactivo",
+                    descripcion = "Consultá al asistente sobre tu atención",
+                    onClick = onChat
+                )
+            }
 
-            descripcion =
-                "Elegí el hospital según su tiempo de espera y describí tus síntomas",
-
-            onClick =
-                onSolicitarAtencion
-        )
+            else -> {
+                MenuCard(
+                    icon = Icons.Filled.LocalHospital,
+                    titulo = "Solicitar atención de guardia",
+                    descripcion = "Elegí el hospital según su tiempo de espera y describí tus síntomas",
+                    onClick = onSolicitarAtencion
+                )
+            }
+        }
 
         Spacer(
             modifier =
                 Modifier.height(12.dp)
         )
+
 
         /*
          * ============================================================
@@ -481,6 +503,15 @@ fun HomeContent(
 
         when (state) {
 
+            is HomeState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MENU_BLUE)
+                }
+            }
+
             is HomeState.Success -> {
 
                 ConsultaActivaCard(
@@ -505,11 +536,6 @@ fun HomeContent(
 
                 SinConsultaCard()
             }
-
-            HomeState.Loading -> {
-
-                SinConsultaCard()
-            }
         }
 
         Spacer(
@@ -529,17 +555,13 @@ fun HomeContent(
 @Composable
 private fun MenuCard(
 
-    icon:
-    androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
 
-    titulo:
-    String,
+    titulo: String,
 
-    descripcion:
-    String,
+    descripcion: String,
 
-    onClick:
-        () -> Unit
+    onClick:() -> Unit
 
 ) {
 
@@ -915,7 +937,7 @@ fun Carousel(
 
         while (true) {
 
-            delay(5000)
+            delay(5000.milliseconds)
 
             val nextPage =
                 (
@@ -1033,23 +1055,15 @@ fun Carousel(
  * CONSULTA ACTIVA
  * ================================================================
  */
-
 @Composable
 fun ConsultaActivaCard(
 
-    estado:
-    com.proyecto_final.triage.network
-    .estadoConsulta
-    .EstadoConsultaPacienteDTO,
+    estado:  EstadoConsultaPacienteDTO,
 
-    hospital:
-    com.proyecto_final.triage.network
-    .estadoConsulta
-    .HospitalSeleccionadoResponse?,
+    hospital: HospitalSeleccionadoResponse?,
 
     onClick:
         () -> Unit
-
 ) {
 
     val (
@@ -1107,10 +1121,8 @@ fun ConsultaActivaCard(
     ) {
 
         Column(
-
             modifier =
                 Modifier.padding(16.dp)
-
         ) {
 
             /*
