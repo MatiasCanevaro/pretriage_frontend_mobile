@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Groups
@@ -33,6 +34,7 @@ import com.proyecto_final.triage.network.esAutorBot
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.viewmodels.ChatViewModel
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 class ChatScreen : Screen {
     @Composable
@@ -102,7 +104,7 @@ fun ChatContent(
     LaunchedEffect(state.envioExitoso) {
         if (state.envioExitoso == true) {
             mostrarExito = true
-            delay(2500)
+            delay(2500.milliseconds)
             mostrarExito = false
         }
     }
@@ -276,7 +278,7 @@ fun ChatContent(
                         )
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Send,
+                        imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Enviar",
                         tint = if (puedeEnviar) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                     )

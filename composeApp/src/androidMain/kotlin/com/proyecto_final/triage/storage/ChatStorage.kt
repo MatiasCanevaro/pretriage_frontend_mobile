@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.core.content.edit
 import com.proyecto_final.triage.appContext
 
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual object ChatStorage {
     private const val PREFS_NAME = "chat_prefs"
     private const val CHAT_ID_KEY = "chat_id"

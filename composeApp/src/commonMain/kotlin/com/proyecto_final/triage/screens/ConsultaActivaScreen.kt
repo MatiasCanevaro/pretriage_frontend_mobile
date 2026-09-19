@@ -9,6 +9,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -273,7 +276,7 @@ fun ConsultaActivaContent(
             Icon(
 
                 imageVector =
-                    Icons.Filled.ArrowBack,
+                    Icons.AutoMirrored.Filled.ArrowBack,
 
                 contentDescription =
                     "Volver",
@@ -1602,7 +1605,7 @@ private fun EstadoConsultaSection(
                     "Chat interactivo",
 
                 icono =
-                    Icons.Filled.Chat,
+                    Icons.AutoMirrored.Filled.Chat,
 
                 onClick =
                     onChatInteractivo,
@@ -1636,7 +1639,7 @@ private fun EstadoConsultaSection(
                     "Ausentarme un momento",
 
                 icono =
-                    Icons.Filled.ExitToApp,
+                    Icons.AutoMirrored.Filled.ExitToApp,
 
                 loading =
                     isAusentarmeLoading,

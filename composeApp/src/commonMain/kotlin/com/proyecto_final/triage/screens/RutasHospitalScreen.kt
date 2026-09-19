@@ -18,6 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsBus
@@ -584,10 +586,10 @@ fun RutaChip(
     val icono = when {
 
         esCaminar ->
-            Icons.Filled.DirectionsWalk
+            Icons.AutoMirrored.Filled.DirectionsWalk
 
         esBicicleta ->
-            Icons.Filled.DirectionsBike
+            Icons.AutoMirrored.Filled.DirectionsBike
 
         else ->
             Icons.Filled.DirectionsBus
@@ -626,7 +628,7 @@ fun RutaChip(
                 )
 
                 Text(
-                    text = tramo.nombreLinea!!,
+                    text = tramo.nombreLinea,
                     style =
                         MaterialTheme.typography.labelMedium,
                     color =
@@ -662,10 +664,10 @@ fun RutaIndicacion(
     val icono = when {
 
         esCaminar ->
-            Icons.Filled.DirectionsWalk
+            Icons.AutoMirrored.Filled.DirectionsWalk
 
         esBicicleta ->
-            Icons.Filled.DirectionsBike
+            Icons.AutoMirrored.Filled.DirectionsBike
 
         else ->
             Icons.Filled.DirectionsBus
@@ -697,7 +699,7 @@ fun RutaIndicacion(
             ) {
 
                 Text(
-                    text = tramo.nombreLinea!!,
+                    text = tramo.nombreLinea,
                     style =
                         MaterialTheme.typography.titleSmall,
                     color =

@@ -939,7 +939,7 @@ private fun DropdownSelectField(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor()
+                    .menuAnchor( ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled=true)
             )
 
             ExposedDropdownMenu(

@@ -14,8 +14,10 @@ import java.io.IOException
 import android.content.Intent
 import androidx.core.content.FileProvider
 
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class PlatformContext(val context: Context)
 
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual object FileSaver {
     actual suspend fun saveToDownloads(
         context: PlatformContext,
@@ -66,6 +68,7 @@ actual object FileSaver {
     }
 }
 
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual object FileViewer {
 
     actual suspend fun archivoExisteLocalmente(
