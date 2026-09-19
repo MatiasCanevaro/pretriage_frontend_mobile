@@ -31,7 +31,9 @@ data class HospitalSeleccionadoResponse(
     val idHospital: Long,
     val placeId: String? = null,
     val nombre: String,
-    val direccion: String? = null
+    val direccion: String? = null,
+    val sectorId: Long,
+    val nombreSector: String
 )
 
 @Serializable

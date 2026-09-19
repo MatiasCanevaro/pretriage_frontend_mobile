@@ -525,6 +525,7 @@ private fun ErrorSection(
  * ================================================================
  */
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun EstadoConsultaSection(
 
@@ -809,6 +810,35 @@ private fun EstadoConsultaSection(
                             "Te iremos avisando cualquier novedad"
                     ) {
 
+                        if (hospital?.nombreSector?.isNotBlank() == true) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.LocationOn,
+                                    contentDescription = null,
+                                    tint = ACCENT,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Sector asignado: ",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text=hospital.nombreSector,
+                                    style= MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = Color(0xFFE6E6E6))
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
                         val tiempoEstimado =
                             estado.tiempoEstimadoAtencion
 
@@ -888,7 +918,7 @@ private fun EstadoConsultaSection(
                                                             .fechaHoraAtencionEstimada
                                                     )
 
-                                                delay(1_000)
+                                                delay(1_000.milliseconds)
                                             }
                                         }
 
@@ -1361,6 +1391,29 @@ private fun EstadoConsultaSection(
                             "Acercate a recepción o a la sala indicada."
                     ) {
 
+                        if (hospital?.nombreSector?.isNotBlank() == true) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.LocationOn,
+                                    contentDescription = null,
+                                    tint = ACCENT,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Sector: ${hospital.nombreSector}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = Color(0xFFE6E6E6))
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
                         Icon(
 
                             imageVector =
@@ -1400,6 +1453,29 @@ private fun EstadoConsultaSection(
                         subtitulo =
                             "Tu consulta está en curso."
                     ) {
+
+                        if (hospital?.nombreSector?.isNotBlank() == true) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.LocationOn,
+                                    contentDescription = null,
+                                    tint = ACCENT,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Sector: ${hospital.nombreSector}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = Color(0xFFE6E6E6))
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
 
                         Icon(
 

@@ -53,6 +53,7 @@ import com.proyecto_final.triage.components.ErrorBanner
 import com.proyecto_final.triage.network.CombinacionRutasDTO
 import com.proyecto_final.triage.network.RutasHospitalState
 import com.proyecto_final.triage.network.TiempoEstimadoArriboHospitalResponse
+import com.proyecto_final.triage.network.estadoConsulta.HospitalSeleccionadoResponse
 import com.proyecto_final.triage.platform.PlatformMap
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.RutasHospitalViewModel
@@ -220,11 +221,13 @@ fun RutasHospitalContent(
              */
 
             PlatformMap(
-                hospital = com.proyecto_final.triage.network.estadoConsulta.HospitalSeleccionadoResponse(
+                hospital = HospitalSeleccionadoResponse(
                     idHospital = hospital.idHospital,
                     placeId = hospital.placeId,
                     nombre = hospital.nombre,
-                    direccion = hospital.direccion
+                    direccion = hospital.direccion,
+                    sectorId = 0,//no se usa aca
+                    nombreSector = ""// no se usa aca
                 ),
                 ubicacion = ubicacion,
                 polylineCode = rutaActual?.polylineCode
