@@ -1,6 +1,7 @@
 package com.proyecto_final.triage.network
 
 import com.proyecto_final.triage.config.AppConfig
+import com.proyecto_final.triage.utils.parsearMensajeError
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -33,7 +34,7 @@ suspend fun obtenerHospitalesCercanos(
             Result.success(hospitales)
         } else {
             val errorBody = response.bodyAsText()
-            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
+            Result.failure(Exception(parsearMensajeError(errorBody)))
         }
 
     } catch (e: Exception) {
@@ -69,7 +70,7 @@ suspend fun obtenerTiempoArriboHospital(
 
             Result.failure(
                 Exception(
-                    "Error ${response.status.value}: $errorBody"
+                    parsearMensajeError(errorBody)
                 )
             )
         }
@@ -94,7 +95,7 @@ suspend fun elegirHospital(
             Result.success(Unit)
         } else {
             val errorBody = response.bodyAsText()
-            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
+            Result.failure(Exception(parsearMensajeError(errorBody)))
         }
 
     } catch (e: Exception) {

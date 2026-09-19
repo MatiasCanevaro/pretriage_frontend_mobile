@@ -2,6 +2,7 @@ package com.proyecto_final.triage.network.estadoConsulta
 
 import com.proyecto_final.triage.config.AppConfig
 import com.proyecto_final.triage.network.httpClient
+import com.proyecto_final.triage.utils.parsearMensajeError
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
@@ -17,7 +18,7 @@ suspend fun obtenerEstadoConsulta(): Result<EstadoConsultaPacienteDTO> {
             Result.success(response.body<EstadoConsultaPacienteDTO>())
         } else {
             val errorBody = response.bodyAsText()
-            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
+            Result.failure(Exception(parsearMensajeError(errorBody)))
         }
 
     } catch (e: Exception) {
@@ -34,7 +35,7 @@ suspend fun obtenerHospitalSeleccionado(): Result<HospitalSeleccionadoResponse> 
             Result.success(response.body<HospitalSeleccionadoResponse>())
         } else {
             val errorBody = response.bodyAsText()
-            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
+            Result.failure(Exception(parsearMensajeError(errorBody)))
         }
 
     } catch (e: Exception) {
@@ -50,7 +51,7 @@ suspend fun ausentarme(): Result<EstadoConsultaPacienteDTO> {
             Result.success(response.body<EstadoConsultaPacienteDTO>())
         } else {
             val errorBody = response.bodyAsText()
-            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
+            Result.failure(Exception(parsearMensajeError(errorBody)))
         }
     } catch (e: Exception) {
         Result.failure(e)
@@ -65,7 +66,7 @@ suspend fun estoyAtrasado(): Result<EstadoConsultaPacienteDTO> {
             Result.success(response.body<EstadoConsultaPacienteDTO>())
         } else {
             val errorBody = response.bodyAsText()
-            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
+            Result.failure(Exception(parsearMensajeError(errorBody)))
         }
     } catch (e: Exception) {
         Result.failure(e)
@@ -80,7 +81,7 @@ suspend fun sigoAsistiendo(): Result<EstadoConsultaPacienteDTO> {
             Result.success(response.body<EstadoConsultaPacienteDTO>())
         } else {
             val errorBody = response.bodyAsText()
-            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
+            Result.failure(Exception(parsearMensajeError(errorBody)))
         }
     } catch (e: Exception) {
         Result.failure(e)
@@ -95,7 +96,7 @@ suspend fun llegue(): Result<EstadoConsultaPacienteDTO> {
             Result.success(response.body<EstadoConsultaPacienteDTO>())
         } else {
             val errorBody = response.bodyAsText()
-            Result.failure(Exception("Error ${response.status.value}: $errorBody"))
+            Result.failure(Exception(parsearMensajeError(errorBody)))
         }
     } catch (e: Exception) {
         Result.failure(e)

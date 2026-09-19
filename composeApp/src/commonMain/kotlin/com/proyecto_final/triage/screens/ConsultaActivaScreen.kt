@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.time.Duration.Companion.milliseconds
 
 private const val POLLING_INTERVAL_MS = 20_000L
 
@@ -71,7 +72,7 @@ class ConsultaActivaScreen : Screen {
 
             while (true) {
 
-                delay(POLLING_INTERVAL_MS)
+                delay(POLLING_INTERVAL_MS.milliseconds)
 
                 viewModel.cargarEstado(
                     mostrarLoading = false

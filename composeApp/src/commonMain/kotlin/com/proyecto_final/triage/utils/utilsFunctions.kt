@@ -1,10 +1,12 @@
 package com.proyecto_final.triage.utils
 
+import com.proyecto_final.triage.AppConstants
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 
 private val json = Json { ignoreUnknownKeys = true }
 
@@ -47,4 +49,24 @@ fun parsearErroresDeCampo(bodyText: String, campos: Set<String>): Map<String, St
     }
 
     return errores.ifEmpty { null }
+}
+
+/**
+ * Extrae el mensaje de error del json [bodyText] y devuelve el campo "mensaje"
+ *
+ * @param bodyText body json de la respuesta en formato texto con atributo "mensaje".
+ * @return un String con el mensaje de error que devolvió la request
+ */
+fun parsearMensajeError(bodyText: String): String {
+    if (bodyText.isBlank()) return AppConstants.ERROR_GENERICO
+
+    val jsonResponse = runCatching { json.parseToJsonElement(bodyText).jsonObject }.getOrNull()
+        ?: return AppConstants.ERROR_GENERICO
+
+    val mensajeError = when(val mensajeJson = jsonResponse["error"]){
+        is JsonPrimitive -> mensajeJson.content
+        else -> AppConstants.ERROR_GENERICO
+    }
+
+    return mensajeError.ifEmpty { AppConstants.ERROR_GENERICO }
 }

@@ -2,6 +2,7 @@ package com.proyecto_final.triage.network.auth
 
 import com.proyecto_final.triage.config.AppConfig
 import com.proyecto_final.triage.network.httpClient
+import com.proyecto_final.triage.utils.parsearMensajeError
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -87,9 +88,7 @@ suspend fun solicitarToken(email: String): Result<SolicitarTokenResult> {
             return Result.success(SolicitarTokenResult(message, expiracionSec))
         }
 
-        val errorBody = runCatching { json.decodeFromString<SolicitarTokenResponse>(bodyText) }.getOrNull()
-        val msg = errorBody?.error ?: errorBody?.message ?: "No se pudo enviar el token"
-        Result.failure(Exception(msg))
+        Result.failure(Exception(parsearMensajeError(bodyText)))
     } catch (e: Exception) {
         println("SOLICITAR TOKEN EXCEPTION: ${e.message}")
         e.printStackTrace()
@@ -106,9 +105,9 @@ suspend fun validarToken(token: String): Result<String> {
         val bodyText = response.bodyAsText()
         println("VALIDAR TOKEN BODY: $bodyText")
 
-        val body = runCatching { json.decodeFromString<ValidarTokenResponse>(bodyText) }.getOrNull()
 
         if (response.status == HttpStatusCode.OK || response.status.value in 200..299) {
+            val body = runCatching { json.decodeFromString<ValidarTokenResponse>(bodyText) }.getOrNull()
             if (body?.valido == true) {
                 return Result.success(body.message ?: "Token válido")
             }
@@ -120,8 +119,7 @@ suspend fun validarToken(token: String): Result<String> {
             return Result.success(body?.message ?: "Token válido")
         }
 
-        val msg = body?.error ?: body?.message ?: "Token inválido o expirado"
-        Result.failure(Exception(msg))
+        Result.failure(Exception(parsearMensajeError(bodyText)))
     } catch (e: Exception) {
         println("VALIDAR TOKEN EXCEPTION: ${e.message}")
         e.printStackTrace()
@@ -145,9 +143,7 @@ suspend fun cambiarContrasenia(token: String, nuevaContrasenia: String): Result<
             return Result.success(body?.message ?: "Contraseña cambiada con éxito")
         }
 
-        val errorBody = runCatching { json.decodeFromString<CambiarContraseniaResponse>(bodyText) }.getOrNull()
-        val msg = errorBody?.error ?: errorBody?.message ?: "No se pudo cambiar la contraseña"
-        Result.failure(Exception(msg))
+        Result.failure(Exception(parsearMensajeError(bodyText)))
     } catch (e: Exception) {
         println("CAMBIAR CONTRASENIA EXCEPTION: ${e.message}")
         e.printStackTrace()
