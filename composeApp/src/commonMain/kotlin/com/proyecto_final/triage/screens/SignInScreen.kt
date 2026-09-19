@@ -56,6 +56,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.text.withStyle
 import com.proyecto_final.triage.storage.TokenStorageProvider
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 
 object RegistrationSuccessMessage {
@@ -87,7 +88,7 @@ class SignInScreen : Screen {
 
                 mostrarMensajeExito = true
 
-                delay(5000)
+                delay(5000.milliseconds)
 
                 mostrarMensajeExito = false
 
