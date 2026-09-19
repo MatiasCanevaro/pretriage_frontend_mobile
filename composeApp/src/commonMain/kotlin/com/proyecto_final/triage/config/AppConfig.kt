@@ -8,12 +8,7 @@ object AppConfig {
     val environment: Environment = Environment.PROD
 
     val baseUrl: String
-        get() = "http://192.168.0.7:8080"
-
-        //get() = when (environment) {
-            //Environment.DEV     -> "http://192.168.0.7:8080"
-            //Environment.PROD    -> "http://192.168.0.7:8080"
-        //}
+        get() = "http://192.168.56.1:8080"
 
 }
 

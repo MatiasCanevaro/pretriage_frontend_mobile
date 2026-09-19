@@ -52,6 +52,7 @@ import com.proyecto_final.triage.viewmodels.ForgotPasswordViewModel
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.Res
 import triage.composeapp.generated.resources.logo
+import com.proyecto_final.triage.AppConstants
 
 class ForgotPasswordScreen : Screen {
 
@@ -110,6 +111,7 @@ fun ForgotPasswordContent(
     onCambiarContrasenia: (String) -> Unit,
     onClearError: () -> Unit
 ) {
+   
     var email by remember { mutableStateOf("") }
     var token by remember { mutableStateOf("") }
     var nuevaContrasenia by remember { mutableStateOf("") }
@@ -201,7 +203,7 @@ fun ForgotPasswordContent(
                     },
                     leadingIcon = Icons.Filled.Email,
                     isError = showEmailErrors && (email.isBlank() || !isEmailValid),
-                    errorMessage = if (email.isBlank()) "Este campo es obligatorio" else "Ingresá un correo válido",
+                    errorMessage = if (email.isBlank()) AppConstants.CAMPO_OBLIGATORIO else "Ingresá un correo válido",
                     enabled = !isLoading
                 )
 
@@ -261,7 +263,7 @@ fun ForgotPasswordContent(
                     },
                     leadingIcon = Icons.Filled.VpnKey,
                     isError = showTokenErrors && token.isBlank(),
-                    errorMessage = "Este campo es obligatorio",
+                    errorMessage = AppConstants.CAMPO_OBLIGATORIO,
                     enabled = !isLoading
                 )
 
@@ -323,7 +325,7 @@ fun ForgotPasswordContent(
                     leadingIcon = Icons.Filled.Lock,
                     isPassword = true,
                     isError = showPasswordErrors && (nuevaContrasenia.isBlank() || !isPasswordValid),
-                    errorMessage = if (nuevaContrasenia.isBlank()) "Este campo es obligatorio" else "La contraseña no cumple los requisitos",
+                    errorMessage = if (nuevaContrasenia.isBlank()) AppConstants.CAMPO_OBLIGATORIO else "La contraseña no cumple los requisitos",
                     enabled = !isLoading
                 )
 
@@ -355,7 +357,7 @@ fun ForgotPasswordContent(
                     leadingIcon = Icons.Filled.Lock,
                     isPassword = true,
                     isError = showPasswordErrors && (confirmarContrasenia.isBlank() || !passwordsMatch),
-                    errorMessage = if (confirmarContrasenia.isBlank()) "Este campo es obligatorio" else "Las contraseñas no coinciden",
+                    errorMessage = if (confirmarContrasenia.isBlank()) AppConstants.CAMPO_OBLIGATORIO else "Las contraseñas no coinciden",
                     enabled = !isLoading
                 )
 

@@ -47,6 +47,8 @@ fun EstadoConsultaPacienteDTO.tipoPausaEnum(): TipoPausaCola? =
         }.getOrNull()
     }
 
+const val MENSAJE_ERROR = "No se pudo procesar la acción."
+
 class ConsultaActivaViewModel : ViewModel() {
 
     var state by mutableStateOf<ConsultaActivaState>(
@@ -126,7 +128,7 @@ class ConsultaActivaViewModel : ViewModel() {
                 .onFailure { error ->
                     actionError =
                         error.message
-                            ?: "No se pudo procesar la acción."
+                            ?: MENSAJE_ERROR
                 }
 
             isAusentarmeLoading = false
@@ -146,7 +148,7 @@ class ConsultaActivaViewModel : ViewModel() {
                 .onFailure { error ->
                     actionError =
                         error.message
-                            ?: "No se pudo procesar la acción."
+                            ?: MENSAJE_ERROR
                 }
 
             isEstoyAtrasadoLoading = false
@@ -166,7 +168,7 @@ class ConsultaActivaViewModel : ViewModel() {
                 .onFailure { error ->
                     actionError =
                         error.message
-                            ?: "No se pudo procesar la acción."
+                            ?: MENSAJE_ERROR
                 }
 
             isSigoAsistiendoLoading = false
@@ -186,7 +188,7 @@ class ConsultaActivaViewModel : ViewModel() {
                 .onFailure { error ->
                     actionError =
                         error.message
-                            ?: "No se pudo procesar la acción."
+                            ?: MENSAJE_ERROR
                 }
 
             isLlegueLoading = false

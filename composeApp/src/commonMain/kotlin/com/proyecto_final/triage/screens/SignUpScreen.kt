@@ -39,6 +39,7 @@ import com.proyecto_final.triage.viewmodels.SignUpViewModel
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.Res
 import triage.composeapp.generated.resources.logo
+import com.proyecto_final.triage.AppConstants
 
 
 class SignUpScreen : Screen {
@@ -678,7 +679,7 @@ fun Step1Content(
 
         errorMessage =
             if (email.isBlank()) {
-                "Este campo es obligatorio"
+                AppConstants.CAMPO_OBLIGATORIO
             } else {
                 "Ingresá un correo válido"
             }
@@ -719,7 +720,7 @@ fun Step1Content(
 
         errorMessage =
             if (password.isBlank()) {
-                "Este campo es obligatorio"
+                AppConstants.CAMPO_OBLIGATORIO
             } else {
                 "La contraseña no cumple los requisitos"
             }
@@ -805,7 +806,7 @@ fun Step1Content(
 
         errorMessage =
             if (repeatPassword.isBlank()) {
-                "Este campo es obligatorio"
+                AppConstants.CAMPO_OBLIGATORIO
             } else {
                 "Las contraseñas no coinciden"
             }
@@ -861,7 +862,7 @@ fun Step2Content(
                     nombre.isBlank(),
 
         errorMessage =
-            "Este campo es obligatorio"
+            AppConstants.CAMPO_OBLIGATORIO
     )
 
 
@@ -890,7 +891,7 @@ fun Step2Content(
                     apellido.isBlank(),
 
         errorMessage =
-            "Este campo es obligatorio"
+            AppConstants.CAMPO_OBLIGATORIO
     )
 
 
@@ -993,7 +994,7 @@ fun Step2Content(
 
                 errorMessage =
                     if (numeroDocumento.isBlank()) {
-                        "Este campo es obligatorio"
+                        AppConstants.CAMPO_OBLIGATORIO
                     } else {
                         "Debe tener $maxDocumento números"
                     }
@@ -1232,7 +1233,7 @@ fun Step3Content(
         isError = pesoError,
 
         errorMessage =
-            "Este campo es obligatorio"
+            AppConstants.CAMPO_OBLIGATORIO
     )
 
 
@@ -1260,7 +1261,7 @@ fun Step3Content(
         isError = alturaError,
 
         errorMessage =
-            "Este campo es obligatorio"
+            AppConstants.CAMPO_OBLIGATORIO
     )
 
 

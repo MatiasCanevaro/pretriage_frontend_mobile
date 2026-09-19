@@ -42,6 +42,7 @@ import kotlinx.serialization.Serializable
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.Res
 import triage.composeapp.generated.resources.credential
+import com.proyecto_final.triage.AppConstants
 
 @Serializable
 data class Credencial(
@@ -874,7 +875,7 @@ private fun DropdownSelectField(
     enabled: Boolean,
     onValueChange: (String) -> Unit,
     isError: Boolean = false,
-    errorMessage: String = "Este campo es obligatorio",
+    errorMessage: String = AppConstants.CAMPO_OBLIGATORIO,
     placeholder: String? = null
 ) {
 

@@ -1,17 +1,14 @@
 package com.proyecto_final.triage.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,11 +20,13 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import com.proyecto_final.triage.components.InputDateField
 import com.proyecto_final.triage.components.InputDropdownField
 import com.proyecto_final.triage.components.InputTextField
+import com.proyecto_final.triage.components.ScreenTitleBar
 import com.proyecto_final.triage.network.PerfilResponse
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.EditProfileState
 import com.proyecto_final.triage.viewmodels.EditProfileViewModel
+import com.proyecto_final.triage.AppConstants
 
 
 class EditProfileScreen(
@@ -72,12 +71,16 @@ fun EditProfilePreview() {
     }
 }
 
+
 @Composable
 fun EditProfileContent(
     state: EditProfileState,
     viewModel: EditProfileViewModel,
     onBack: () -> Unit
 ) {
+    
+    
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -85,24 +88,10 @@ fun EditProfileContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(Spacing.lg))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Volver",
-                modifier = Modifier.clickable { onBack() }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Editar perfil",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f)
-            )
-        }
+        ScreenTitleBar(
+            title = "Editar perfil",
+            onBack = { onBack() }
+        )
 
         Spacer(modifier = Modifier.height(Spacing.md))
 
@@ -116,7 +105,7 @@ fun EditProfileContent(
             leadingIcon = Icons.Filled.Person,
             placeholder = "Ingresá tu nombre",
             isError = state.errors["nombre"] != null,
-            errorMessage = state.errors["nombre"] ?: "Este campo es obligatorio"
+            errorMessage = state.errors["nombre"] ?: AppConstants.CAMPO_OBLIGATORIO
         )
         Spacer(modifier = Modifier.height(Spacing.sm))
 
@@ -127,7 +116,7 @@ fun EditProfileContent(
             leadingIcon = Icons.Filled.Person,
             placeholder = "Ingresá tu apellido",
             isError = state.errors["apellido"] != null,
-            errorMessage = state.errors["apellido"] ?: "Este campo es obligatorio"
+            errorMessage = state.errors["apellido"] ?: AppConstants.CAMPO_OBLIGATORIO
         )
         Spacer(modifier = Modifier.height(Spacing.sm))
 
@@ -146,7 +135,7 @@ fun EditProfileContent(
                     onOptionSelected = { viewModel.onFieldChange("tipoDocumento", it) },
                     placeholder = "Seleccioná un tipo",
                     isError = state.errors["tipoDocumento"] != null,
-                    errorMessage = state.errors["tipoDocumento"] ?: "Este campo es obligatorio"
+                    errorMessage = state.errors["tipoDocumento"] ?: AppConstants.CAMPO_OBLIGATORIO
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -157,7 +146,7 @@ fun EditProfileContent(
                     keyboardType = KeyboardType.Number,
                     placeholder = "Ingresá tu número",
                     isError = state.errors["numeroDocumento"] != null,
-                    errorMessage = state.errors["numeroDocumento"] ?: "Este campo es obligatorio"
+                    errorMessage = state.errors["numeroDocumento"] ?: AppConstants.CAMPO_OBLIGATORIO
                 )
             }
         }
@@ -170,7 +159,7 @@ fun EditProfileContent(
             onValueChange = { viewModel.onFieldChange("fechaNacimiento", it) },
             placeholder = "DD/MM/AAAA",
             isError = state.errors["fechaNacimiento"] != null,
-            errorMessage = state.errors["fechaNacimiento"] ?: "Este campo es obligatorio"
+            errorMessage = state.errors["fechaNacimiento"] ?: AppConstants.CAMPO_OBLIGATORIO
         )
 
         // GENERO
@@ -191,7 +180,7 @@ fun EditProfileContent(
                     onOptionSelected = { viewModel.onFieldChange("generoBiologico", it) },
                     placeholder = "Seleccioná un sexo",
                     isError = state.errors["generoBiologico"] != null,
-                    errorMessage = state.errors["generoBiologico"] ?: "Este campo es obligatorio"
+                    errorMessage = state.errors["generoBiologico"] ?: AppConstants.CAMPO_OBLIGATORIO
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -205,7 +194,7 @@ fun EditProfileContent(
                     onOptionSelected = { viewModel.onFieldChange("generoConElQueSeIdentifica", it) },
                     placeholder = "Seleccioná un género",
                     isError = state.errors["generoConElQueSeIdentifica"] != null,
-                    errorMessage = state.errors["generoConElQueSeIdentifica"] ?: "Este campo es obligatorio"
+                    errorMessage = state.errors["generoConElQueSeIdentifica"] ?: AppConstants.CAMPO_OBLIGATORIO
                 )
             }
         }
@@ -221,7 +210,7 @@ fun EditProfileContent(
             keyboardType = KeyboardType.Email,
             placeholder = "nombre@ejemplo.com",
             isError = state.errors["email"] != null,
-            errorMessage = state.errors["email"] ?: "Este campo es obligatorio"
+            errorMessage = state.errors["email"] ?: AppConstants.CAMPO_OBLIGATORIO
         )
         Spacer(modifier = Modifier.height(Spacing.sm))
 
@@ -246,7 +235,7 @@ fun EditProfileContent(
             leadingIcon = Icons.Filled.Home,
             placeholder = "Ingresá tu calle",
             isError = state.errors["calle"] != null,
-            errorMessage = state.errors["calle"] ?: "Este campo es obligatorio"
+            errorMessage = state.errors["calle"] ?: AppConstants.CAMPO_OBLIGATORIO
         )
         Spacer(modifier = Modifier.height(Spacing.sm))
 
@@ -290,7 +279,7 @@ fun EditProfileContent(
             leadingIcon = Icons.Filled.Place,
             placeholder = "Ingresá tu ciudad",
             isError = state.errors["ciudad"] != null,
-            errorMessage = state.errors["ciudad"] ?: "Este campo es obligatorio"
+            errorMessage = state.errors["ciudad"] ?: AppConstants.CAMPO_OBLIGATORIO
         )
 
         Spacer(modifier = Modifier.height(Spacing.sm))
@@ -302,7 +291,7 @@ fun EditProfileContent(
             leadingIcon = Icons.Filled.Map,
             placeholder = "Ingresá tu provincia",
             isError = state.errors["provincia"] != null,
-            errorMessage = state.errors["provincia"] ?: "Este campo es obligatorio"
+            errorMessage = state.errors["provincia"] ?: AppConstants.CAMPO_OBLIGATORIO
         )
 
         // SALUD

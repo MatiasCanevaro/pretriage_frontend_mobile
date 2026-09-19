@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.proyecto_final.triage.AppConstants
 
 class EditProfileViewModel : ViewModel() {
 
@@ -108,68 +109,96 @@ class EditProfileViewModel : ViewModel() {
         val s = _state.value
         val errores = mutableMapOf<String, String>()
 
-        if (s.nombre.isBlank()) errores["nombre"] = "Este campo es obligatorio"
-        if (s.apellido.isBlank()) errores["apellido"] = "Este campo es obligatorio"
-        if (s.tipoDocumento.isBlank()) errores["tipoDocumento"] = "Este campo es obligatorio"
-        if (s.numeroDocumento.isBlank()) errores["numeroDocumento"] = "Este campo es obligatorio"
-        if (s.fechaNacimiento.isBlank()) errores["fechaNacimiento"] = "Este campo es obligatorio"
-        if (s.generoBiologico.isBlank()) errores["generoBiologico"] = "Este campo es obligatorio"
-        if (s.generoConElQueSeIdentifica.isBlank()) {
-            errores["generoConElQueSeIdentifica"] = "Este campo es obligatorio"
-        }
+        validarCamposObligatorios(errores, s)
+        validarEmail(errores, s)
+        validarTelefono(errores, s)
+        validarPeso(errores, s)
+        validarAlturaPersona(errores, s)
+        validarAlturaDireccion(errores, s)
+        validarPiso(errores, s)
+        validarCodigoPostal(errores, s)
+        validarCiudadProvincia(errores, s)
 
+        return errores
+    }
+
+    private fun validarCamposObligatorios(errores: MutableMap<String, String>, s: EditProfileState) {
+        if (s.nombre.isBlank()) errores["nombre"] = AppConstants.CAMPO_OBLIGATORIO
+        if (s.apellido.isBlank()) errores["apellido"] = AppConstants.CAMPO_OBLIGATORIO
+        if (s.tipoDocumento.isBlank()) errores["tipoDocumento"] = AppConstants.CAMPO_OBLIGATORIO
+        if (s.numeroDocumento.isBlank()) errores["numeroDocumento"] = AppConstants.CAMPO_OBLIGATORIO
+        if (s.fechaNacimiento.isBlank()) errores["fechaNacimiento"] = AppConstants.CAMPO_OBLIGATORIO
+        if (s.generoBiologico.isBlank()) errores["generoBiologico"] = AppConstants.CAMPO_OBLIGATORIO
+        if (s.generoConElQueSeIdentifica.isBlank()) {
+            errores["generoConElQueSeIdentifica"] = AppConstants.CAMPO_OBLIGATORIO
+        }
+        if (s.ciudad.isBlank()) errores["ciudad"] = AppConstants.CAMPO_OBLIGATORIO
+        if (s.provincia.isBlank()) errores["provincia"] = AppConstants.CAMPO_OBLIGATORIO
+    }
+
+    private fun validarEmail(errores: MutableMap<String, String>, s: EditProfileState) {
         if (s.email.isBlank()) {
-            errores["email"] = "Este campo es obligatorio"
+            errores["email"] = AppConstants.CAMPO_OBLIGATORIO
         } else if (!isValidEmail(s.email.trim())) {
             errores["email"] = "Ingresá un correo válido"
         }
+    }
 
+    private fun validarTelefono(errores: MutableMap<String, String>, s: EditProfileState) {
         if (s.telefono.isBlank()) {
-            errores["telefono"] = "Este campo es obligatorio"
+            errores["telefono"] = AppConstants.CAMPO_OBLIGATORIO
         } else if (s.telefono.trim().any { !it.isDigit() && it !in "+-() " }) {
             errores["telefono"] = "Ingresá un teléfono válido"
         }
+    }
 
-        if (s.calle.isBlank()) errores["calle"] = "Este campo es obligatorio"
-
+    private fun validarPeso(errores: MutableMap<String, String>, s: EditProfileState) {
         if (s.peso.isBlank()) {
-            errores["peso"] = "Este campo es obligatorio"
+            errores["peso"] = AppConstants.CAMPO_OBLIGATORIO
         } else {
             val numero = s.peso.trim().replace(',', '.').toDoubleOrNull()
             if (numero == null || numero <= 0) {
                 errores["peso"] = "Ingresá un peso válido"
             }
         }
+    }
 
+    private fun validarAlturaPersona(errores: MutableMap<String, String>, s: EditProfileState) {
         if (s.alturaPersona.isBlank()) {
-            errores["alturaPersona"] = "Este campo es obligatorio"
+            errores["alturaPersona"] = AppConstants.CAMPO_OBLIGATORIO
         } else {
             val numero = s.alturaPersona.trim().toIntOrNull()
             if (numero == null || numero <= 0) {
                 errores["alturaPersona"] = "Ingresá una altura válida"
             }
         }
+    }
 
+    private fun validarAlturaDireccion(errores: MutableMap<String, String>, s: EditProfileState) {
         if (s.alturaDireccion.isBlank()) {
-            errores["alturaDireccion"] = "Este campo es obligatorio"
+            errores["alturaDireccion"] = AppConstants.CAMPO_OBLIGATORIO
         } else if (!s.alturaDireccion.trim().all { it.isDigit() }) {
             errores["alturaDireccion"] = "Ingresá un valor válido"
         }
+    }
 
+    private fun validarPiso(errores: MutableMap<String, String>, s: EditProfileState) {
         if (s.piso.isNotBlank() && !s.piso.trim().all { it.isDigit() }) {
             errores["piso"] = "Ingresá un valor válido"
         }
+    }
 
+    private fun validarCodigoPostal(errores: MutableMap<String, String>, s: EditProfileState) {
         if (s.codigoPostal.isBlank()) {
-            errores["codigoPostal"] = "Este campo es obligatorio"
+            errores["codigoPostal"] = AppConstants.CAMPO_OBLIGATORIO
         } else if (!s.codigoPostal.trim().all { it.isDigit() }) {
             errores["codigoPostal"] = "Ingresá un código postal válido"
         }
+    }
 
-        if (s.ciudad.isBlank()) errores["ciudad"] = "Este campo es obligatorio"
-        if (s.provincia.isBlank()) errores["provincia"] = "Este campo es obligatorio"
-
-        return errores
+    private fun validarCiudadProvincia(errores: MutableMap<String, String>, s: EditProfileState) {
+        if (s.ciudad.isBlank()) errores["ciudad"] = AppConstants.CAMPO_OBLIGATORIO
+        if (s.provincia.isBlank()) errores["provincia"] = AppConstants.CAMPO_OBLIGATORIO
     }
 
     private fun buildRequest(): PerfilUsuarioRequest {
