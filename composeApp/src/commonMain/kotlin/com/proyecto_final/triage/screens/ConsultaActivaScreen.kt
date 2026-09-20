@@ -14,6 +14,8 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,8 +25,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.annotation.ExperimentalVoyagerApi
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.jetpack.navigatorViewModel
+import com.proyecto_final.triage.components.Spinner
 import com.proyecto_final.triage.location.obtenerUbicacionActual
 import com.proyecto_final.triage.network.estadoConsulta.EstadoConsultaPacienteDTO
 import com.proyecto_final.triage.network.estadoConsulta.EstadoEntradaCola
@@ -33,6 +38,7 @@ import com.proyecto_final.triage.network.estadoConsulta.TipoPausaCola
 import com.proyecto_final.triage.platform.PlatformMap
 import com.proyecto_final.triage.viewmodels.ConsultaActivaState
 import com.proyecto_final.triage.viewmodels.ConsultaActivaViewModel
+import com.proyecto_final.triage.viewmodels.HomeViewModel
 import com.proyecto_final.triage.viewmodels.estadoColaEnum
 import com.proyecto_final.triage.viewmodels.tipoPausaEnum
 import kotlinx.coroutines.delay
@@ -53,6 +59,7 @@ private val BUTTON_BORDER = Color(0xFF5BB8D4)
 private val CARD_BORDER = Color(0xFFE0E0E0)
 
 
+@OptIn(ExperimentalVoyagerApi::class)
 class ConsultaActivaScreen : Screen {
 
     @Composable
@@ -65,6 +72,8 @@ class ConsultaActivaScreen : Screen {
         val viewModel = remember {
             ConsultaActivaViewModel()
         }
+
+        val homeViewModel = navigatorViewModel { HomeViewModel() }
 
         LaunchedEffect(Unit) {
 
@@ -110,6 +119,12 @@ class ConsultaActivaScreen : Screen {
 
             isLlegueLoading =
                 viewModel.isLlegueLoading,
+
+            isCancelarSeleccionLoading =
+                viewModel.isCancelarSeleccionLoading,
+
+            cancelacionExitosa =
+                viewModel.cancelacionExitosa,
 
 
             onBack = {
@@ -205,7 +220,15 @@ class ConsultaActivaScreen : Screen {
                 navigator?.push(
                     ChatScreen()
                 )
-            }
+            },
+
+
+            onCancelarSeleccion = {
+
+                viewModel.cancelarSeleccion()
+            },
+
+            homeViewModel = homeViewModel
         )
     }
 }
@@ -228,6 +251,10 @@ fun ConsultaActivaContent(
 
     isLlegueLoading: Boolean,
 
+    isCancelarSeleccionLoading: Boolean,
+
+    cancelacionExitosa: Boolean,
+
     onBack: () -> Unit,
 
     onRetry: () -> Unit,
@@ -242,7 +269,11 @@ fun ConsultaActivaContent(
 
     onComoLlegar: () -> Unit,
 
-    onChatInteractivo: () -> Unit
+    onChatInteractivo: () -> Unit,
+
+    onCancelarSeleccion: () -> Unit,
+
+    homeViewModel: HomeViewModel
 ) {
 
     Column(
@@ -361,6 +392,12 @@ fun ConsultaActivaContent(
                     isLlegueLoading =
                         isLlegueLoading,
 
+                    isCancelarSeleccionLoading =
+                        isCancelarSeleccionLoading,
+
+                    cancelacionExitosa =
+                        cancelacionExitosa,
+
                     onAusentarme =
                         onAusentarme,
 
@@ -377,7 +414,12 @@ fun ConsultaActivaContent(
                         onComoLlegar,
 
                     onChatInteractivo =
-                        onChatInteractivo
+                        onChatInteractivo,
+
+                    onCancelarSeleccion =
+                        onCancelarSeleccion,
+
+                    homeViewModel = homeViewModel
                 )
             }
         }
@@ -543,6 +585,10 @@ private fun EstadoConsultaSection(
 
     isLlegueLoading: Boolean,
 
+    isCancelarSeleccionLoading: Boolean,
+
+    cancelacionExitosa: Boolean,
+
     onAusentarme: () -> Unit,
 
     onEstoyAtrasado: () -> Unit,
@@ -553,7 +599,11 @@ private fun EstadoConsultaSection(
 
     onComoLlegar: () -> Unit,
 
-    onChatInteractivo: () -> Unit
+    onChatInteractivo: () -> Unit,
+
+    onCancelarSeleccion: () -> Unit,
+
+    homeViewModel: HomeViewModel
 ) {
 
     val estadoCola =
@@ -1548,33 +1598,15 @@ private fun EstadoConsultaSection(
                 estadoCola ==
                         EstadoEntradaCola.CANCELADA -> {
 
-                    CardEstadoConsulta(
+                    // Navegar a HomeScreen cuando la cancelación sea exitosa
+                    val navigator = LocalNavigator.current
 
-                        titulo =
-                            "Consulta cancelada",
+                    // mostramos spinner mientras carga
+                    Spinner()
 
-                        subtitulo =
-                            "Este turno ya no está activo."
-                    ) {
-
-                        Icon(
-
-                            imageVector =
-                                Icons.Filled.Cancel,
-
-                            contentDescription =
-                                null,
-
-                            tint =
-                                Color(0xFFE57373),
-
-                            modifier =
-                                Modifier
-                                    .size(40.dp)
-                                    .align(
-                                        Alignment.CenterHorizontally
-                                    )
-                        )
+                    if (cancelacionExitosa) {
+                        homeViewModel.triggerCancelSuccessSnackbar()
+                        navigator?.replace(HomeScreen())
                     }
                 }
 
@@ -1724,6 +1756,82 @@ private fun EstadoConsultaSection(
                     onAusentarme
             )
         }
+
+
+        /*
+         * CANCELAR SELECCIÓN
+         *
+         * SE MUESTRA EN: EN_COLA, EN_ESPERA, ATRASADO
+         * NO SE MUESTRA EN: LLAMADO, EN_ATENCION, FINALIZADA, CANCELADA
+         */
+        val mostrarCancelarSeleccion = when {
+            estadoCola == EstadoEntradaCola.EN_COLA -> true
+            estadoCola == EstadoEntradaCola.EN_ESPERA -> true
+            estadoCola == EstadoEntradaCola.ATRASADO -> true
+            else -> false
+        }
+
+        // Estado para el diálogo de confirmación
+        var showCancelDialog by remember { mutableStateOf(false) }
+
+        if (mostrarCancelarSeleccion) {
+
+            Spacer(
+                modifier =
+                    Modifier.height(8.dp)
+            )
+
+
+            BotonCeleste(
+                texto =
+                    "Cancelar selección",
+
+                icono =
+                    Icons.Filled.Cancel,
+
+                loading =
+                    isCancelarSeleccionLoading,
+
+                onClick = {
+                    showCancelDialog = true
+                },
+
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFFFEBEE))
+            )
+        }
+
+        if (showCancelDialog) {
+            // confirmación
+            AlertDialog(
+                onDismissRequest = { showCancelDialog = false },
+                title = { Text("¿Cancelar selección de hospital?") },
+                text = {
+                    Text(
+                        text = "Se cancelará tu turno y saldrás de la cola. ¿Estás seguro?",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showCancelDialog = false
+                        onCancelarSeleccion()
+                    }) {
+                        Text("Sí, cancelar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showCancelDialog = false }) {
+                        Text("No, volver")
+                    }
+                }
+            )
+        }
+
+
+
     }
 }
 

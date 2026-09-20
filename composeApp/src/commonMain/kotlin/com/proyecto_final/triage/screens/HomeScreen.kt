@@ -15,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
@@ -24,10 +23,13 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,17 +41,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.annotation.ExperimentalVoyagerApi
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.jetpack.navigatorViewModel
+import com.proyecto_final.triage.components.Spinner
 import com.proyecto_final.triage.network.estadoConsulta.EstadoConsultaPacienteDTO
 import com.proyecto_final.triage.network.estadoConsulta.HospitalSeleccionadoResponse
-import com.proyecto_final.triage.storage.TokenStorage
 import com.proyecto_final.triage.storage.TokenStorageProvider
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.utils.dialEmergency
 import com.proyecto_final.triage.viewmodels.HomeState
 import com.proyecto_final.triage.viewmodels.HomeViewModel
-import io.ktor.util.reflect.instanceOf
 import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -93,6 +96,7 @@ private val ICON_GRAY = Color(0xFF6B7280)
  * ================================================================
  */
 
+@OptIn(ExperimentalVoyagerApi::class)
 class HomeScreen : Screen {
 
     @Composable
@@ -100,9 +104,7 @@ class HomeScreen : Screen {
 
         val navigator = LocalNavigator.current
 
-        val viewModel = remember {
-            HomeViewModel()
-        }
+        val viewModel =  navigatorViewModel { HomeViewModel() }
 
         val state = viewModel.state
 
@@ -132,6 +134,7 @@ class HomeScreen : Screen {
 
         HomeContent(
             state = state,
+            viewModel = viewModel,
 
             /*
              * Llamada real al 911.
@@ -186,6 +189,7 @@ fun HomePreview() {
 
         HomeContent(
             state = HomeState.Loading,
+            viewModel = remember { HomeViewModel() },
 
             onEmergency = {},
 
@@ -214,6 +218,8 @@ fun HomeContent(
 
     state: HomeState,
 
+    viewModel: HomeViewModel,
+
     onEmergency: () -> Unit,
 
     onSolicitarAtencion: () -> Unit,
@@ -227,6 +233,19 @@ fun HomeContent(
     onConsultaActiva: () -> Unit
 
 ) {
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Mostrar snackbar de éxito al cancelar selección
+    LaunchedEffect(viewModel.showCancelSuccessSnackbar) {
+        if (viewModel.showCancelSuccessSnackbar) {
+            snackbarHostState.showSnackbar(
+                message = "Selección cancelada con éxito",
+                duration = SnackbarDuration.Short
+            )
+            viewModel.onCancelSuccessSnackbarShown()
+        }
+    }
 
     /*
      * Carrusel existente.
@@ -420,12 +439,7 @@ fun HomeContent(
         when (state) {
 
             is HomeState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = MENU_BLUE)
-                }
+                Spinner(color = MENU_BLUE)
             }
 
             is HomeState.Success -> {
@@ -506,12 +520,7 @@ fun HomeContent(
         when (state) {
 
             is HomeState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = MENU_BLUE)
-                }
+                Spinner(MENU_BLUE, 24.dp)
             }
 
             is HomeState.Success -> {
@@ -544,7 +553,21 @@ fun HomeContent(
             modifier =
                 Modifier.height(24.dp)
         )
+
+        // SnackbarHost para mostrar mensajes
+        SnackbarHost(
+            hostState = snackbarHostState,
+            snackbar = { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = Color(0xFF3AA76D),
+                    contentColor = Color.White
+                )
+            }
+        )
+
     }
+
 }
 
 

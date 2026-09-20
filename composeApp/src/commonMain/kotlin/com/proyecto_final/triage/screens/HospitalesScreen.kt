@@ -20,6 +20,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import com.proyecto_final.triage.components.CommonHeader
 import com.proyecto_final.triage.components.ErrorBanner
 import com.proyecto_final.triage.components.ProgressBar
+import com.proyecto_final.triage.components.Spinner
 import com.proyecto_final.triage.network.EspecialidadMedicaDTO
 import com.proyecto_final.triage.network.HospitalCercanoDTO
 import com.proyecto_final.triage.theme.Spacing
@@ -58,9 +59,7 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
         when (state) {
 
             is HospitalesState.Loading -> {
-                Box( modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color(0xFF5BB8D4))
-                }
+                Spinner(color = Color(0xFF5BB8D4))
             }
 
             is HospitalesState.Error -> {

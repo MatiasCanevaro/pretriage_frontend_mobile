@@ -91,6 +91,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.voyager.navigator)
             implementation(libs.voyager.screenmodel)
+            implementation(libs.voyager.lifecycle.kmp)
             implementation(libs.material.icons.extended)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)

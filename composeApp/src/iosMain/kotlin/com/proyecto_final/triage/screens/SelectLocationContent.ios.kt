@@ -205,7 +205,7 @@ private fun LocationOptionRow(
                         strokeWidth = 2.dp,
                         color = accentColor
                     )
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium,

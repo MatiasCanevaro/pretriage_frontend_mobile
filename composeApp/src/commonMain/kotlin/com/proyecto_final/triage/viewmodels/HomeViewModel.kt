@@ -13,6 +13,7 @@ import com.proyecto_final.triage.network.estadoConsulta.obtenerHospitalSeleccion
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 private val ESTADOS_COLA_ACTIVA = setOf(
     "EN_COLA", "LLAMADO", "EN_ESPERA", "ATRASADO", "EN_ATENCION"
@@ -28,6 +29,17 @@ class HomeViewModel : ViewModel() {
 
     var state by mutableStateOf<HomeState>(HomeState.Loading)
         private set
+
+    var showCancelSuccessSnackbar by mutableStateOf(false)
+        private set
+
+    fun triggerCancelSuccessSnackbar() {
+        showCancelSuccessSnackbar = true
+    }
+
+    fun onCancelSuccessSnackbarShown() {
+        showCancelSuccessSnackbar = false
+    }
 
     private var suscripcionSseJob: Job? = null
     private var pollingJob: Job? = null
@@ -45,7 +57,7 @@ class HomeViewModel : ViewModel() {
 
         pollingJob = viewModelScope.launch {
             while (true) {
-                delay(POLLING_INTERVAL_MS)
+                delay(POLLING_INTERVAL_MS.milliseconds)
                 refrescarEstado(mostrarLoading = false)
             }
         }

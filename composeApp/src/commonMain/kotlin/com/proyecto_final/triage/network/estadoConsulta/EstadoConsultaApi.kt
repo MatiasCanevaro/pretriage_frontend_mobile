@@ -102,3 +102,18 @@ suspend fun llegue(): Result<EstadoConsultaPacienteDTO> {
         Result.failure(e)
     }
 }
+
+suspend fun cancelarSeleccionHospital(): Result<EstadoConsultaPacienteDTO> {
+    return try {
+        val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/cancelar")
+
+        if (response.status == HttpStatusCode.OK) {
+            Result.success(response.body<EstadoConsultaPacienteDTO>())
+        } else {
+            val errorBody = response.bodyAsText()
+            Result.failure(Exception(parsearMensajeError(errorBody)))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}

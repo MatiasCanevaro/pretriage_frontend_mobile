@@ -18,6 +18,7 @@ import com.proyecto_final.triage.network.estadoConsulta.ausentarme as ausentarme
 import com.proyecto_final.triage.network.estadoConsulta.estoyAtrasado as estoyAtrasadoApi
 import com.proyecto_final.triage.network.estadoConsulta.sigoAsistiendo as sigoAsistiendoApi
 import com.proyecto_final.triage.network.estadoConsulta.llegue as llegueApi
+import com.proyecto_final.triage.network.estadoConsulta.cancelarSeleccionHospital as cancelarSeleccionHospitalApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -74,6 +75,12 @@ class ConsultaActivaViewModel : ViewModel() {
     var isLlegueLoading by mutableStateOf(false)
         private set
 
+    var isCancelarSeleccionLoading by mutableStateOf(false)
+        private set
+
+    var cancelacionExitosa by mutableStateOf(false)
+        private set
+
     private var sseJob: Job? = null
     private var sseConsultaId: Long? = null
 
@@ -84,6 +91,8 @@ class ConsultaActivaViewModel : ViewModel() {
             if (mostrarLoading) {
                 state = ConsultaActivaState.Loading
             }
+
+            cancelacionExitosa = false
 
             obtenerEstadoConsulta()
                 .onSuccess { estado ->
@@ -192,6 +201,28 @@ class ConsultaActivaViewModel : ViewModel() {
                 }
 
             isLlegueLoading = false
+        }
+    }
+
+    fun cancelarSeleccion() {
+        viewModelScope.launch {
+
+            actionError = null
+            isCancelarSeleccionLoading = true
+            cancelacionExitosa = false
+
+            cancelarSeleccionHospitalApi()
+                .onSuccess { estado ->
+                    aplicarNuevoEstado(estado)
+                    cancelacionExitosa = true
+                }
+                .onFailure { error ->
+                    actionError =
+                        error.message
+                            ?: MENSAJE_ERROR
+                }
+
+            isCancelarSeleccionLoading = false
         }
     }
 
