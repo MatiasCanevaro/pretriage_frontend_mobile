@@ -17,7 +17,8 @@ fun Spinner(
     paddingVertical: Dp = 16.dp
 ) {
     Box(
-        modifier = Modifier.fillMaxWidth().padding(vertical = paddingVertical),
+        modifier = Modifier.fillMaxWidth()
+            .padding(vertical = paddingVertical),
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(color = color)

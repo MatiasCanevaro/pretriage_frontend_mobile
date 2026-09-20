@@ -349,7 +349,6 @@ fun ConsultaActivaContent(
         when (state) {
 
             is ConsultaActivaState.Loading -> {
-
                 LoadingSection()
             }
 
@@ -848,50 +847,19 @@ private fun EstadoConsultaSection(
                  * ====================================================
                  */
 
-                estadoCola ==
-                        EstadoEntradaCola.EN_COLA -> {
+                estadoCola == EstadoEntradaCola.EN_COLA -> {
 
                     CardEstadoConsulta(
-
-                        titulo =
-                            "Estás en la cola",
-
-                        subtitulo =
-                            "Te iremos avisando cualquier novedad"
+                        titulo = "Estás en la cola",
+                        subtitulo =  "Te iremos avisando cualquier novedad"
                     ) {
-
                         if (hospital?.nombreSector?.isNotBlank() == true) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.LocationOn,
-                                    contentDescription = null,
-                                    tint = ACCENT,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Sector asignado: ",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text=hospital.nombreSector,
-                                    style= MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = Color(0xFFE6E6E6))
-                            Spacer(modifier = Modifier.height(12.dp))
+                            SeccionSector(
+                                nombreSector = hospital.nombreSector
+                            )
                         }
 
-                        val tiempoEstimado =
-                            estado.tiempoEstimadoAtencion
-
+                        val tiempoEstimado = estado.tiempoEstimadoAtencion
 
                         if (tiempoEstimado != null) {
 
@@ -900,72 +868,49 @@ private fun EstadoConsultaSection(
                             ) {
 
                                 Row(
-
-                                    modifier =
-                                        Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-
 
                                     /*
                                      * TIEMPO DE ESPERA
                                      */
 
                                     Column(
-
-                                        modifier =
-                                            Modifier.weight(1f),
-
-                                        horizontalAlignment =
-                                            Alignment.CenterHorizontally
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
 
                                         Text(
-
-                                            text =
-                                                "Tiempo de espera",
-
-                                            style =
-                                                MaterialTheme.typography
-                                                    .bodySmall,
-
-                                            color =
-                                                MaterialTheme.colorScheme
-                                                    .onSurfaceVariant
+                                            text = "Tiempo de espera",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-
 
                                         Spacer(
-                                            modifier =
-                                                Modifier.height(4.dp)
+                                            modifier = Modifier.height(4.dp)
                                         )
 
 
-                                        var minutosRestantes
-                                                by remember(
-                                                    tiempoEstimado
-                                                        .fechaHoraAtencionEstimada
+                                        var minutosRestantes by remember (
+                                                    tiempoEstimado.fechaHoraAtencionEstimada
                                                 ) {
-
                                                     mutableStateOf(
                                                         calcularMinutosRestantes(
-                                                            tiempoEstimado
-                                                                .fechaHoraAtencionEstimada
+                                                            tiempoEstimado.fechaHoraAtencionEstimada
                                                         )
                                                     )
                                                 }
 
 
                                         LaunchedEffect(
-                                            tiempoEstimado
-                                                .fechaHoraAtencionEstimada
+                                            tiempoEstimado.fechaHoraAtencionEstimada
                                         ) {
 
                                             while (true) {
 
                                                 minutosRestantes =
                                                     calcularMinutosRestantes(
-                                                        tiempoEstimado
-                                                            .fechaHoraAtencionEstimada
+                                                        tiempoEstimado.fechaHoraAtencionEstimada
                                                     )
 
                                                 delay(1_000.milliseconds)
@@ -974,28 +919,16 @@ private fun EstadoConsultaSection(
 
 
                                         Text(
-
-                                            text =
-                                                "$minutosRestantes min",
-
-                                            style =
-                                                MaterialTheme.typography
-                                                    .headlineSmall,
-
-                                            fontWeight =
-                                                FontWeight.Bold,
-
-                                            color =
-                                                ACCENT
+                                            text = "$minutosRestantes min",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ACCENT
                                         )
                                     }
 
 
                                     Box(
-
-                                        modifier =
-                                            Modifier
-                                                .width(1.dp)
+                                        modifier = Modifier.width(1.dp)
                                                 .height(58.dp)
                                                 .background(
                                                     Color(0xFFE0E0E0)
@@ -1008,72 +941,44 @@ private fun EstadoConsultaSection(
                                      */
 
                                     Column(
-
-                                        modifier =
-                                            Modifier.weight(1f),
-
-                                        horizontalAlignment =
-                                            Alignment.CenterHorizontally
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-
                                         Text(
-
-                                            text =
-                                                "Pacientes antes que vos",
-
-                                            style =
-                                                MaterialTheme.typography
-                                                    .bodySmall,
-
-                                            color =
-                                                MaterialTheme.colorScheme
-                                                    .onSurfaceVariant,
-
-                                            textAlign =
-                                                TextAlign.Center
+                                            text = "Pacientes antes que vos",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center
                                         )
-
 
                                         Spacer(
-                                            modifier =
-                                                Modifier.height(4.dp)
+                                            modifier = Modifier.height(4.dp)
                                         )
 
 
                                         Text(
+                                            text = "${tiempoEstimado.pacientesAntes}",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
 
-                                            text =
-                                                "${tiempoEstimado.pacientesAntes}",
-
-                                            style =
-                                                MaterialTheme.typography
-                                                    .headlineSmall,
-
-                                            fontWeight =
-                                                FontWeight.Bold,
-
-                                            color =
-                                                ACCENT
+                                            color = ACCENT
                                         )
                                     }
                                 }
 
 
                                 Spacer(
-                                    modifier =
-                                        Modifier.height(14.dp)
+                                    modifier = Modifier.height(14.dp)
                                 )
 
 
                                 HorizontalDivider(
-                                    color =
-                                        Color(0xFFE6E6E6)
+                                    color = Color(0xFFE6E6E6)
                                 )
 
 
                                 Spacer(
-                                    modifier =
-                                        Modifier.height(12.dp)
+                                    modifier = Modifier.height(12.dp)
                                 )
 
 
@@ -1082,52 +987,29 @@ private fun EstadoConsultaSection(
                                  */
 
                                 Column(
-
-                                    modifier =
-                                        Modifier.fillMaxWidth(),
-
-                                    horizontalAlignment =
-                                        Alignment.CenterHorizontally
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
 
                                     Text(
-
-                                        text =
-                                            "Tu posición en la cola",
-
-                                        style =
-                                            MaterialTheme.typography
-                                                .bodySmall,
-
-                                        color =
-                                            MaterialTheme.colorScheme
-                                                .onSurfaceVariant
+                                        text = "Tu posición en la cola",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
 
-
                                     Spacer(
-                                        modifier =
-                                            Modifier.height(2.dp)
+                                        modifier = Modifier.height(2.dp)
                                     )
 
 
                                     Text(
 
-                                        text =
-                                            "#${tiempoEstimado.posicionEnCola}",
-
-                                        style =
-                                            MaterialTheme.typography
-                                                .headlineSmall,
-
-                                        fontWeight =
-                                            FontWeight.Bold,
-
-                                        color =
-                                            ACCENT
+                                        text = "#${tiempoEstimado.posicionEnCola}",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color =ACCENT
                                     )
                                 }
-
 
                                 /*
                                  * HORA ESTIMADA
@@ -1442,26 +1324,9 @@ private fun EstadoConsultaSection(
                     ) {
 
                         if (hospital?.nombreSector?.isNotBlank() == true) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.LocationOn,
-                                    contentDescription = null,
-                                    tint = ACCENT,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Sector: ${hospital.nombreSector}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = Color(0xFFE6E6E6))
-                            Spacer(modifier = Modifier.height(12.dp))
+                            SeccionSector(
+                                nombreSector = hospital.nombreSector
+                            )
                         }
 
                         Icon(
@@ -1505,26 +1370,9 @@ private fun EstadoConsultaSection(
                     ) {
 
                         if (hospital?.nombreSector?.isNotBlank() == true) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.LocationOn,
-                                    contentDescription = null,
-                                    tint = ACCENT,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Sector: ${hospital.nombreSector}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = Color(0xFFE6E6E6))
-                            Spacer(modifier = Modifier.height(12.dp))
+                            SeccionSector(
+                                nombreSector = hospital.nombreSector
+                            )
                         }
 
                         Icon(
@@ -1764,10 +1612,10 @@ private fun EstadoConsultaSection(
          * SE MUESTRA EN: EN_COLA, EN_ESPERA, ATRASADO
          * NO SE MUESTRA EN: LLAMADO, EN_ATENCION, FINALIZADA, CANCELADA
          */
-        val mostrarCancelarSeleccion = when {
-            estadoCola == EstadoEntradaCola.EN_COLA -> true
-            estadoCola == EstadoEntradaCola.EN_ESPERA -> true
-            estadoCola == EstadoEntradaCola.ATRASADO -> true
+        val mostrarCancelarSeleccion =  when (estadoCola) {
+            EstadoEntradaCola.EN_COLA -> true
+            EstadoEntradaCola.EN_ESPERA -> true
+            EstadoEntradaCola.ATRASADO -> true
             else -> false
         }
 
@@ -1781,25 +1629,14 @@ private fun EstadoConsultaSection(
                     Modifier.height(8.dp)
             )
 
+            BotonCancelar(
+                loading = isCancelarSeleccionLoading,
+                onClick = { showCancelDialog = true }
+            )
 
-            BotonCeleste(
-                texto =
-                    "Cancelar selección",
-
-                icono =
-                    Icons.Filled.Cancel,
-
-                loading =
-                    isCancelarSeleccionLoading,
-
-                onClick = {
-                    showCancelDialog = true
-                },
-
+            Spacer(
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFFFEBEE))
+                    Modifier.height(16.dp)
             )
         }
 
@@ -1833,6 +1670,41 @@ private fun EstadoConsultaSection(
 
 
     }
+}
+
+/*
+* SECCIÓN DENTRO DE LA CARD PARA MOSTRAR EL NOMBRE DEL SECTOR
+* */
+@Composable
+fun SeccionSector(
+    nombreSector: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Filled.LocationOn,
+            contentDescription = null,
+            tint = ACCENT,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Sector asignado: ",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text=nombreSector,
+            style= MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Bold
+        )
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    HorizontalDivider(color = Color(0xFFE6E6E6))
+    Spacer(modifier = Modifier.height(12.dp))
 }
 
 
@@ -2121,6 +1993,83 @@ private fun BotonCeleste(
     }
 }
 
+
+/*
+ * ================================================================
+ * BOTÓN CANCELAR
+ * ================================================================
+ */
+
+@Composable
+private fun BotonCancelar(
+    loading: Boolean = false,
+    onClick: () -> Unit
+) {
+    val colorBorderCancel = Color(0xFFD50202)
+    val colorBackgroundCancel = Color(0xFFFDB2B2)
+
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.fillMaxWidth()
+                .clip(
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .heightIn(
+                    min = 64.dp
+                )
+                .background(
+                    colorBackgroundCancel
+                )
+                .border(
+                    width = 1.dp,
+                    color = colorBorderCancel,
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .clickable(
+                    enabled = !loading,
+                    onClick = { onClick() }
+                )
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 12.dp
+                )
+    ) {
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (loading) {
+
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = colorBorderCancel
+                )
+            } else {
+
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = null,
+                    tint = colorBorderCancel,
+                    modifier = Modifier.size(22.dp)
+                )
+
+                Spacer(
+                    modifier = Modifier.width(8.dp)
+                )
+
+                Text(
+                    text = "Cancelar turno",
+                    color = colorBorderCancel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
 
 /*
  * ================================================================
