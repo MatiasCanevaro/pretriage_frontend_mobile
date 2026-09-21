@@ -375,55 +375,23 @@ fun ConsultaActivaContent(
             is ConsultaActivaState.Success -> {
 
                 EstadoConsultaSection(
-
-                    estado =
-                        state.estado,
-
-                    hospital =
-                        hospital,
-
-                    actionError =
-                        actionError,
-
-                    isAusentarmeLoading =
-                        isAusentarmeLoading,
-
-                    isEstoyAtrasadoLoading =
-                        isEstoyAtrasadoLoading,
-
-                    isSigoAsistiendoLoading =
-                        isSigoAsistiendoLoading,
-
-                    isLlegueLoading =
-                        isLlegueLoading,
-
-                    isCancelarSeleccionLoading =
-                        isCancelarSeleccionLoading,
-
-                    cancelacionExitosa =
-                        cancelacionExitosa,
-
-                    onAusentarme =
-                        onAusentarme,
-
-                    onEstoyAtrasado =
-                        onEstoyAtrasado,
-
-                    onSigoAsistiendo =
-                        onSigoAsistiendo,
-
-                    onLlegue =
-                        onLlegue,
-
-                    onComoLlegar =
-                        onComoLlegar,
-
-                    onChatInteractivo =
-                        onChatInteractivo,
-
-                    onCancelarSeleccion =
-                        onCancelarSeleccion,
-
+                    estado = state.estado,
+                    hospital = hospital,
+                    actionError = actionError,
+                    isAusentarmeLoading = isAusentarmeLoading,
+                    isEstoyAtrasadoLoading = isEstoyAtrasadoLoading,
+                    isSigoAsistiendoLoading = isSigoAsistiendoLoading,
+                    isLlegueLoading = isLlegueLoading,
+                    isCancelarSeleccionLoading = isCancelarSeleccionLoading,
+                    cancelacionExitosa = cancelacionExitosa,
+                    onAusentarme = onAusentarme,
+                    onEstoyAtrasado =onEstoyAtrasado,
+                    onSigoAsistiendo =onSigoAsistiendo,
+                    onLlegue =onLlegue,
+                    onComoLlegar =onComoLlegar,
+                    onChatInteractivo =onChatInteractivo,
+                    onCancelarSeleccion =onCancelarSeleccion,
+                    onBack = onBack,
                     homeViewModel = homeViewModel
                 )
             }
@@ -608,6 +576,8 @@ private fun EstadoConsultaSection(
 
     onCancelarSeleccion: () -> Unit,
 
+    onBack: () -> Unit,
+
     homeViewModel: HomeViewModel
 ) {
 
@@ -616,6 +586,7 @@ private fun EstadoConsultaSection(
 
     val tipoPausa =
         estado.tipoPausaEnum()
+    var mostrarExpirado by remember { mutableStateOf(false) }
 
 
     /*
@@ -1119,72 +1090,19 @@ private fun EstadoConsultaSection(
                         EstadoEntradaCola.EN_ESPERA &&
                         tipoPausa ==
                         TipoPausaCola.ESPERA_MANUAL -> {
-                            val fechaLimite = estado.fechaHoraLimiteRespuesta
-                            val segundosRestantes = segundosRestantes(fechaLimite)
-
-                    CardEstadoConsulta(
-
-                        titulo =
-                            "Estás en pausa",
-
-                        subtitulo =
-                            "Te ausentaste temporalmente"
+                    CardConCountDown(
+                        titulo = "Estás en pausa",
+                        subtitulo = "Te ausentaste temporalmente",
+                        descripcion = "Tenés hasta 60 minutos para volver antes de que se cancele tu turno.",
+                        fechaHoraLimite = estado.fechaHoraLimiteRespuesta!!,
+                        mostrarExpirado= mostrarExpirado,
+                        onFinishCountDown = { mostrarExpirado = true }
                     ) {
-
-                        Text(
-
-                            text =
-                                "Tenés hasta 60 minutos para volver antes de que se cancele tu turno.",
-
-                            style =
-                                MaterialTheme.typography.bodySmall,
-
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(16.dp)
-                        )
-
-
-                        var mostrarExpirado by remember { mutableStateOf(false) }
-
-                        CountdownText(
-                            totalSeconds = segundosRestantes,
-                            onFinish = { mostrarExpirado = true }
-                        )
-                        if (mostrarExpirado) {
-                            Text(
-                                text = "El tiempo de espera expiró, tu turno fue cancelado.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(16.dp)
-                        )
-
                         BotonCeleste(
-
-                            texto =
-                                "Llegué, volver a la cola",
-
-                            icono =
-                                Icons.Filled.CheckCircle,
-
-                            loading =
-                                isLlegueLoading,
-
-                            onClick =
-                                onLlegue
+                            texto ="Llegué, volver a la cola",
+                            icono = Icons.Filled.CheckCircle,
+                            loading = isLlegueLoading,
+                            onClick = onLlegue
                         )
                     }
                 }
@@ -1201,57 +1119,14 @@ private fun EstadoConsultaSection(
                         tipoPausa ==
                         TipoPausaCola.AUSENTE_AL_LLAMADO -> {
 
-                    CardEstadoConsulta(
-
-                        titulo =
-                            "No estabas cuando te llamamos",
-
-                        subtitulo =
-                            "Tu turno sigue activo"
+                    CardConCountDown(
+                        titulo = "No estabas cuando te llamamos",
+                        subtitulo = "Tu turno sigue activo",
+                        descripcion = "Tenés una hora para llegar. Si no llegás dentro de ese tiempo, tu turno se cancelará.",
+                        fechaHoraLimite = estado.fechaHoraLimiteRespuesta!!,
+                        mostrarExpirado= mostrarExpirado,
+                        onFinishCountDown = { mostrarExpirado = true }
                     ) {
-
-                        Text(
-
-                            text =
-                                "Tenés una hora para llegar. Si no llegás dentro de ese tiempo, tu turno se cancelará.",
-
-                            style =
-                                MaterialTheme.typography.bodySmall,
-
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(16.dp)
-                        )
-
-                        var mostrarExpirado by remember { mutableStateOf(false) }
-                        val fechaLimite = estado.fechaHoraLimiteRespuesta
-                        val segundosRestantes = segundosRestantes(fechaLimite)
-
-                        CountdownText(
-                            totalSeconds = segundosRestantes,
-                            onFinish = { mostrarExpirado = true }
-                        )
-                        if (mostrarExpirado) {
-                            Text(
-                                text = "El tiempo de espera expiró, tu turno fue cancelado.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        Spacer(
-                            modifier = Modifier.height(16.dp)
-                        )
-
-
                         BotonCeleste(
 
                             texto =
@@ -1553,8 +1428,7 @@ private fun EstadoConsultaSection(
      */
 
     if (
-
-        estadoCola ==
+        (estadoCola ==
         EstadoEntradaCola.EN_COLA ||
 
         estadoCola ==
@@ -1564,7 +1438,8 @@ private fun EstadoConsultaSection(
         EstadoEntradaCola.EN_ESPERA ||
 
         estadoCola ==
-        EstadoEntradaCola.ATRASADO
+        EstadoEntradaCola.ATRASADO) &&
+        !mostrarExpirado
     ) {
 
         Spacer(
@@ -1719,9 +1594,78 @@ private fun EstadoConsultaSection(
         }
 
 
-}
+    } else { // expiró el turno por tiempo
+            Spacer(
+                modifier =
+                    Modifier.height(12.dp)
+            )
+
+            BotonCeleste(
+                texto = "Volver a Inicio",
+                icono = Icons.AutoMirrored.Filled.ArrowBack,
+                loading = false,
+                onClick = onBack
+            )
+    }
 
 }
+
+@Composable
+fun CardConCountDown(
+    titulo: String,
+    subtitulo: String,
+    descripcion: String,
+    fechaHoraLimite: String,
+    mostrarExpirado: Boolean,
+    onFinishCountDown: ()-> Unit,
+    content: @Composable ()-> Unit
+
+){
+    val segundosRestantes = segundosRestantes(fechaHoraLimite)
+
+    CardEstadoConsulta(
+        titulo = titulo,
+        subtitulo = subtitulo
+    ) {
+
+        Text(
+            text = descripcion,
+            style =MaterialTheme.typography.bodySmall,
+            color =MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(
+            modifier =
+                Modifier.height(16.dp)
+        )
+
+        CountdownText(
+            totalSeconds = segundosRestantes,
+            onFinish = onFinishCountDown
+        )
+        if (mostrarExpirado) {
+            Spacer(
+                modifier =
+                    Modifier.height(16.dp)
+            )
+            Text(
+                text = "El tiempo de espera expiró, tu turno fue cancelado.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Left,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
+
+            content()
+        }
+    }
+}
+
 
 /*
 * SECCIÓN DENTRO DE LA CARD PARA MOSTRAR EL NOMBRE DEL SECTOR
