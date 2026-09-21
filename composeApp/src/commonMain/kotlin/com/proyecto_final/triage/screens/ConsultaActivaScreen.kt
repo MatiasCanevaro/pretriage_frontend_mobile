@@ -29,6 +29,7 @@ import cafe.adriel.voyager.core.annotation.ExperimentalVoyagerApi
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.jetpack.navigatorViewModel
+import com.proyecto_final.triage.components.CountdownText
 import com.proyecto_final.triage.components.Spinner
 import com.proyecto_final.triage.location.obtenerUbicacionActual
 import com.proyecto_final.triage.network.estadoConsulta.EstadoConsultaPacienteDTO
@@ -36,6 +37,9 @@ import com.proyecto_final.triage.network.estadoConsulta.EstadoEntradaCola
 import com.proyecto_final.triage.network.estadoConsulta.HospitalSeleccionadoResponse
 import com.proyecto_final.triage.network.estadoConsulta.TipoPausaCola
 import com.proyecto_final.triage.platform.PlatformMap
+import com.proyecto_final.triage.utils.calcularMinutosRestantes
+import com.proyecto_final.triage.utils.formatHora
+import com.proyecto_final.triage.utils.segundosRestantes
 import com.proyecto_final.triage.viewmodels.ConsultaActivaState
 import com.proyecto_final.triage.viewmodels.ConsultaActivaViewModel
 import com.proyecto_final.triage.viewmodels.HomeViewModel
@@ -46,7 +50,9 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 private const val POLLING_INTERVAL_MS = 20_000L
 
@@ -1113,6 +1119,8 @@ private fun EstadoConsultaSection(
                         EstadoEntradaCola.EN_ESPERA &&
                         tipoPausa ==
                         TipoPausaCola.ESPERA_MANUAL -> {
+                            val fechaLimite = estado.fechaHoraLimiteRespuesta
+                            val segundosRestantes = segundosRestantes(fechaLimite)
 
                     CardEstadoConsulta(
 
@@ -1142,6 +1150,27 @@ private fun EstadoConsultaSection(
                                 Modifier.height(16.dp)
                         )
 
+
+                        var mostrarExpirado by remember { mutableStateOf(false) }
+
+                        CountdownText(
+                            totalSeconds = segundosRestantes,
+                            onFinish = { mostrarExpirado = true }
+                        )
+                        if (mostrarExpirado) {
+                            Text(
+                                text = "El tiempo de espera expiró, tu turno fue cancelado.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(16.dp)
+                        )
 
                         BotonCeleste(
 
@@ -1198,6 +1227,28 @@ private fun EstadoConsultaSection(
                         Spacer(
                             modifier =
                                 Modifier.height(16.dp)
+                        )
+
+                        var mostrarExpirado by remember { mutableStateOf(false) }
+                        val fechaLimite = estado.fechaHoraLimiteRespuesta
+                        val segundosRestantes = segundosRestantes(fechaLimite)
+
+                        CountdownText(
+                            totalSeconds = segundosRestantes,
+                            onFinish = { mostrarExpirado = true }
+                        )
+                        if (mostrarExpirado) {
+                            Text(
+                                text = "El tiempo de espera expiró, tu turno fue cancelado.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(
+                            modifier = Modifier.height(16.dp)
                         )
 
 
@@ -1668,8 +1719,8 @@ private fun EstadoConsultaSection(
         }
 
 
+}
 
-    }
 }
 
 /*
@@ -2071,99 +2122,3 @@ private fun BotonCancelar(
     }
 }
 
-/*
- * ================================================================
- * HORA
- * ================================================================
- */
-
-private fun formatHora(
-    iso: String?
-): String {
-
-    if (
-        iso.isNullOrBlank()
-    ) {
-
-        return "--:--"
-    }
-
-
-    return try {
-
-        val timePart =
-            iso
-                .substringAfter("T")
-                .substringBefore(".")
-
-
-        timePart.substring(
-            0,
-            5
-        )
-
-    } catch (
-        e: Exception
-    ) {
-
-        "--:--"
-    }
-}
-
-
-/*
- * ================================================================
- * MINUTOS RESTANTES
- * ================================================================
- */
-
-fun calcularMinutosRestantes(
-
-    fechaHoraAtencionEstimada:
-    String?
-): Int {
-
-    if (
-        fechaHoraAtencionEstimada
-            .isNullOrBlank()
-    ) {
-
-        return 0
-    }
-
-
-    return try {
-
-        val fechaEstimada =
-            LocalDateTime.parse(
-                fechaHoraAtencionEstimada
-            )
-
-
-        val fechaEstimadaInstant =
-            fechaEstimada.toInstant(
-                TimeZone.currentSystemDefault()
-            )
-
-
-        val ahora =
-            kotlin.time.Clock.System.now()
-
-
-        val minutos =
-            (
-                    fechaEstimadaInstant - ahora
-                    ).inWholeMinutes
-
-
-        minutos
-            .coerceAtLeast(0)
-            .toInt()
-
-    } catch (
-        e: Exception
-    ) {
-
-        0
-    }
-}

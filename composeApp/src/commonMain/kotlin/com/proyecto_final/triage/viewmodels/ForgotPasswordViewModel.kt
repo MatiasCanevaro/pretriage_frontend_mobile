@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class ForgotPasswordStep {
     Email,
@@ -133,7 +134,7 @@ class ForgotPasswordViewModel : ViewModel() {
         _countdownSec.value = expirationSec
         countdownJob = viewModelScope.launch {
             while (_countdownSec.value > 0) {
-                delay(1000)
+                delay(1000.milliseconds)
                 _countdownSec.value = _countdownSec.value - 1
             }
             // al llegar a 0, si sigue en paso Token, mostrar error
