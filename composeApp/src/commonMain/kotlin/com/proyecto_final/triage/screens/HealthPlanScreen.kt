@@ -42,6 +42,7 @@ import com.proyecto_final.triage.viewmodels.HealthPlanViewModel
 import com.proyecto_final.triage.viewmodels.ObrasSocialesState
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
 import kotlinx.datetime.todayIn
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -175,7 +176,7 @@ private fun isFechaVencimientoValida(fecha: String): Boolean {
 
     val hoy = kotlin.time.Clock.System.todayIn(TimeZone.currentSystemDefault())
 
-    return anio > hoy.year || (anio == hoy.year && mes >= hoy.monthNumber)
+    return anio > hoy.year || (anio == hoy.year && mes >= hoy.month.number)
 }
 
 private fun isFechaVencimientoValida(credencial: Credencial): Boolean =

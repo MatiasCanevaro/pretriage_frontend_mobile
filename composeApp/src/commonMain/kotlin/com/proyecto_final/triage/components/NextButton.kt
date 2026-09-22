@@ -38,7 +38,10 @@ fun NextButton(
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF69B3D5))
     ) {
         if (isLoading) {
-            Spinner(color = Color.White)
+            Spinner(
+                color = Color.White,
+                paddingVertical = 0.dp
+            )
         } else {
             Text(
                 text = text,

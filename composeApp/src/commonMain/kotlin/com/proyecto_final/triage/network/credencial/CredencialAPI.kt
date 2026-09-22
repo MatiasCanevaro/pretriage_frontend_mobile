@@ -16,7 +16,7 @@ suspend fun obtenerObrasSociales(): Result<List<ObraSocialResponse>> {
         if (response.status == HttpStatusCode.OK) {
             val obrasSociales = response.body<List<ObraSocialResponse>>()
             if (obrasSociales.isEmpty()) {
-                Result.failure(Exception(parsearMensajeError("No hay obras sociales disponibles.")))
+                Result.failure(Exception("No hay obras sociales disponibles."))
             } else {
                 Result.success(obrasSociales)
             }
