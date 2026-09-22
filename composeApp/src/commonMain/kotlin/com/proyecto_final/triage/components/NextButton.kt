@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -24,7 +25,8 @@ import androidx.compose.ui.unit.sp
 fun NextButton(
     onClick: () -> Unit,
     enabled: Boolean = true,
-    text: String = "Continuar"
+    text: String = "Continuar",
+    isLoading: Boolean = false
 ) {
     Button(
         onClick = onClick,
@@ -35,6 +37,13 @@ fun NextButton(
             .height(54.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF69B3D5))
     ) {
-        Text(text)
+        if (isLoading) {
+            Spinner(color = Color.White)
+        } else {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
     }
 }

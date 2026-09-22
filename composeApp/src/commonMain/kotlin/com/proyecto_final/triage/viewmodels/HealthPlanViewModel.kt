@@ -6,6 +6,7 @@ import com.proyecto_final.triage.network.CredencialRequest
 import com.proyecto_final.triage.network.CredencialUpdateResult
 import com.proyecto_final.triage.network.actualizarCredencial
 import com.proyecto_final.triage.network.cargarCredencial
+import com.proyecto_final.triage.network.credencial.ObraSocialResponse
 import com.proyecto_final.triage.screens.Credencial
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,8 +19,34 @@ class HealthPlanViewModel : ViewModel() {
     private val _state = MutableStateFlow<CredencialState>(CredencialState.Idle)
     val state: StateFlow<CredencialState> = _state
 
+    private val _obrasSocialesState =
+        MutableStateFlow<ObrasSocialesState>(ObrasSocialesState.Loading)
+
+    val obrasSocialesState: StateFlow<ObrasSocialesState> =
+        _obrasSocialesState
+
     private val _credencialesState = MutableStateFlow<CredencialesState>(CredencialesState.Loading)
+
     val credencialesState: StateFlow<CredencialesState> = _credencialesState
+
+    fun obtenerObrasSociales() {
+        viewModelScope.launch {
+
+            _obrasSocialesState.value = ObrasSocialesState.Loading
+
+            val result = com.proyecto_final.triage.network.credencial.obtenerObrasSociales()
+
+            result.onSuccess { lista ->
+                _obrasSocialesState.value =
+                    ObrasSocialesState.Success(lista)
+            }.onFailure {
+                _obrasSocialesState.value =
+                    ObrasSocialesState.Error(
+                        it.message ?: "Error al obtener las obras sociales"
+                    )
+            }
+        }
+    }
 
     fun cargarCredencial(nombreObraSocial: String, numeroAfiliado: String, plan: String, fechaVencimiento: String) {
         viewModelScope.launch {
@@ -33,6 +60,8 @@ class HealthPlanViewModel : ViewModel() {
                     fechaVencimiento = convertirFechaVencimiento(fechaVencimiento)
                 )
             )
+
+            println("DEBUG: resultado = $result")
 
             procesarResultado(result)
         }
@@ -134,4 +163,16 @@ fun convertirFechaVencimiento(fecha: String): String {
     if (mes !in 1..12) return ""
 
     return "${anio.toString().padStart(4, '0')}-${mes.toString().padStart(2, '0')}-01"
+}
+
+sealed class ObrasSocialesState {
+    object Loading : ObrasSocialesState()
+
+    data class Success(
+        val obrasSociales: List<ObraSocialResponse>
+    ) : ObrasSocialesState()
+
+    data class Error(
+        val message: String
+    ) : ObrasSocialesState()
 }
