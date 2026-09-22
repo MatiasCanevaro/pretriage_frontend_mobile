@@ -2,20 +2,13 @@ package com.proyecto_final.triage.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
-import com.proyecto_final.triage.components.ErrorBanner
+import com.proyecto_final.triage.components.ErrorMessage
 import com.proyecto_final.triage.config.AppConfig
-import com.proyecto_final.triage.storage.TokenStorage
 import com.proyecto_final.triage.network.httpClient
 import com.proyecto_final.triage.storage.TokenStorageProvider
 import io.ktor.client.plugins.ClientRequestException
@@ -53,8 +46,7 @@ class SplashScreen : Screen {
 
                 } catch (e: Exception) {
                     showPopup = true
-                    println("EXCEPCIÓN: ${e::class.qualifiedName}")
-                    println("MENSAJE: ${e.message}")
+                    print("Error al conectar con el servidor: ${e.message}")
                 } finally {
                     StartupState.loading = false
                 }
@@ -65,23 +57,20 @@ class SplashScreen : Screen {
             iniciar()
         }
 
-        Box(modifier = Modifier.fillMaxSize()
+        // Mensaje de error en caso de que no se pueda conectar con el servidor
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
             if (showPopup) {
-                Box(modifier = Modifier.align(Alignment.TopCenter)) {
-                    ErrorBanner(
-                        message = "No se pudo conectar con el servidor.",
-                        buttonText = "Reintentar",
-                        icon = Icons.Default.Warning,
-                        onButtonClick = {
-                            showPopup = false
-                            iniciar()
-                        }
-                    )
-                }
+                ErrorMessage(
+                    onClick = {
+                        showPopup = false
+                        iniciar()
+                    }
+                )
+
             }
         }
-        // TODO: falta validar que el token no esté vencido.
     }
 }
 

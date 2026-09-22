@@ -21,28 +21,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import com.proyecto_final.triage.AppConstants
 import com.proyecto_final.triage.components.CommonHeader
+import com.proyecto_final.triage.components.ErrorMessage
 import com.proyecto_final.triage.components.InputMonthYearField
 import com.proyecto_final.triage.components.InputTextField
+import com.proyecto_final.triage.components.NextButton
+import com.proyecto_final.triage.components.Spinner
+import com.proyecto_final.triage.components.SuccessMessage
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.CredencialState
 import com.proyecto_final.triage.viewmodels.CredencialesState
 import com.proyecto_final.triage.viewmodels.HealthPlanViewModel
+import com.proyecto_final.triage.viewmodels.ObrasSocialesState
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.Res
 import triage.composeapp.generated.resources.credential
-import com.proyecto_final.triage.AppConstants
 
 @Serializable
 data class Credencial(
@@ -62,10 +67,21 @@ data class Credencial(
     val idCredencial: Long = 0
 )
 
+/**
+ * Qué operación sobre una credencial está en curso / recién terminó,
+ * para saber qué mensaje de éxito mostrar y qué hacer al aceptar.
+ */
+private sealed class PendingAction {
+    object Crear : PendingAction()
+    object Editar : PendingAction()
+    object Eliminar : PendingAction()
+}
+
 class HealthPlanScreen : Screen {
 
     @Composable
     override fun Content() {
+
         val navigator = LocalNavigator.current
         val viewModel = remember { HealthPlanViewModel() }
 
@@ -87,12 +103,89 @@ fun HealthPlanPreview() {
     }
 }
 
-// Listas de ejemplo para los selects. Reemplazar por el origen de datos real.
-private val obrasSocialesDisponibles =
-    listOf("OSDE", "Swiss Medical", "Galeno", "Medifé", "IOMA")
+/**
+ * Credencial "vacía", usada como base para el formulario de alta
+ * y como valor por defecto antes de que carguen los datos.
+ */
+private fun credencialVacia() = Credencial(
+    nombreObraSocial = "",
+    numeroAfiliado = "",
+    plan = "",
+    fechaVencimiento = ""
+)
 
-private val planesDisponibles =
-    listOf("210", "220", "310", "410", "Plan Único")
+/**
+ * Calcula, de forma síncrona, qué credencial corresponde mostrar/editar
+ * para una página dada del pager. Al ser una función pura (sin side
+ * effects), se puede usar como key de `remember` y así evitar el frame
+ * de desfasaje que generaba un `LaunchedEffect` asincrónico.
+ */
+private fun credencialParaPagina(
+    page: Int,
+    credenciales: List<Credencial>
+): Credencial {
+
+    return if (page < credenciales.size) {
+
+        val actual = credenciales[page]
+
+        actual.copy(
+            fechaVencimiento = formatearFechaParaPicker(actual.fechaVencimiento)
+        )
+
+    } else {
+        credencialVacia()
+    }
+}
+
+/**
+ * Validaciones de cada campo. Se centralizan acá para que tanto
+ * `Formulario` (para marcar error en cada campo) como el botón
+ * "Guardar" del footer (para habilitarse o no) usen exactamente
+ * las mismas reglas.
+ */
+private fun isNombreValido(credencial: Credencial): Boolean =
+    credencial.nombreObraSocial.isNotBlank()
+
+private fun isNumeroValido(credencial: Credencial): Boolean =
+    credencial.numeroAfiliado.length >= 3 &&
+            credencial.numeroAfiliado.all { it.isDigit() }
+
+private fun isPlanValido(credencial: Credencial): Boolean =
+    credencial.plan.isNotBlank()
+
+/**
+ * La fecha de vencimiento (formato "MM/aaaa", el que usa el picker)
+ * es válida si es un mes/año real y no es anterior al mes/año actual.
+ */
+private fun isFechaVencimientoValida(fecha: String): Boolean {
+
+    val partes = fecha.split("/")
+
+    if (partes.size != 2) {
+        return false
+    }
+
+    val mes = partes[0].toIntOrNull() ?: return false
+    val anio = partes[1].toIntOrNull() ?: return false
+
+    if (mes !in 1..12) {
+        return false
+    }
+
+    val hoy = kotlin.time.Clock.System.todayIn(TimeZone.currentSystemDefault())
+
+    return anio > hoy.year || (anio == hoy.year && mes >= hoy.monthNumber)
+}
+
+private fun isFechaVencimientoValida(credencial: Credencial): Boolean =
+    isFechaVencimientoValida(credencial.fechaVencimiento)
+
+private fun isCredencialValida(credencial: Credencial): Boolean =
+    isNombreValido(credencial) &&
+            isNumeroValido(credencial) &&
+            isPlanValido(credencial) &&
+            isFechaVencimientoValida(credencial)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,271 +193,165 @@ fun HealthPlanContent(
     onBack: () -> Unit,
     viewModel: HealthPlanViewModel
 ) {
-
     var showErrors by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Si la card actual es una credencial ya cargada,
-    // controla si el form está bloqueado o habilitado para editar.
+    // Si la credencial actual es existente,
+    // controla si está bloqueada o en modo edición.
     var isEditingExisting by remember { mutableStateOf(false) }
 
-    var nombreObraSocial by remember { mutableStateOf("") }
-    var numeroAfiliado by remember { mutableStateOf("") }
-    var plan by remember { mutableStateOf("") }
-    var fechaVencimiento by remember { mutableStateOf("") }
-    var credencialActualId by remember { mutableStateOf(0L) }
+    // Qué operación disparó el último Success, para saber
+    // qué mensaje mostrar y qué hacer al apretar "Aceptar".
+    var pendingAction by remember { mutableStateOf<PendingAction?>(null) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
 
-    // OBTENGO LAS CREDENCIALES DEL SERVIDOR
+    // Estados del ViewModel
+    val obrasSocialesState by viewModel.obrasSocialesState.collectAsState()
+    val credencialesState by viewModel.credencialesState.collectAsState()
+    val credencialState by viewModel.state.collectAsState()
+
+    val isGuardando = credencialState is CredencialState.Loading
+
+    // Obtener datos al entrar a la pantalla.
     LaunchedEffect(Unit) {
+        isEditingExisting = false
+        viewModel.obtenerObrasSociales()
         viewModel.obtenerCredenciales()
     }
 
-    var nuevaCredencial by remember {
-        mutableStateOf(
-            Credencial("", "", "", "")
-        )
+    // Obras sociales disponibles para el selector.
+    val obrasSocialesDisponibles = when (val state = obrasSocialesState) {
+
+        is ObrasSocialesState.Loading -> {
+            emptyList()
+        }
+
+        is ObrasSocialesState.Success -> {
+            state.obrasSociales.map { it.nombre }
+        }
+
+        is ObrasSocialesState.Error -> {
+            emptyList()
+        }
     }
 
-    val state by viewModel.credencialesState.collectAsState()
-    val credencialState by viewModel.state.collectAsState()
-
     val backendFieldErrors =
-        (credencialState as? CredencialState.Error)?.fieldErrors ?: emptyMap()
+        (credencialState as? CredencialState.Error)?.fieldErrors
+            ?: emptyMap()
 
     val errorGeneral =
         (credencialState as? CredencialState.Error)?.message
-            ?: (state as? CredencialesState.Error)?.message
+            ?: (credencialesState as? CredencialesState.Error)?.message
 
-    val credenciales = when (state) {
+    val credenciales = when (credencialesState) {
+
         is CredencialesState.Success ->
-            (state as CredencialesState.Success).credenciales
+            (credencialesState as CredencialesState.Success).credenciales
 
-        else -> emptyList()
+        else ->
+            emptyList()
     }
 
     val pagerState = rememberPagerState(
         pageCount = { credenciales.size + 1 }
     )
 
+    // showForm: derivado en forma síncrona de la página actual, para que
+    // no haya un frame donde currentPage ya cambió pero showForm todavía no.
+    var showForm by remember(pagerState.currentPage, credenciales) {
+        mutableStateOf(pagerState.currentPage >= credenciales.size)
+    }
+
+    // credencial: idem, se recalcula en la misma pasada de composición
+    // en la que cambia la página o la lista de credenciales, sin pasar
+    // por un LaunchedEffect asincrónico. Así se evita el "flash" de un
+    // frame con datos de la credencial anterior en la página nueva.
+    var credencial by remember(pagerState.currentPage, credenciales) {
+        mutableStateOf(credencialParaPagina(pagerState.currentPage, credenciales))
+    }
+
     val scope = rememberCoroutineScope()
 
-    val showForm = pagerState.currentPage == credenciales.size
-
     /*
-     * Cuando cambia el estado de la operación de credencial:
-     * - Si fue exitosa, limpiamos el formulario.
-     * - Ocultamos diálogos.
-     * - Quitamos el modo edición.
-     * - Reseteamos el estado del ViewModel.
+     * Cuando una operación sobre una credencial termina correctamente:
+     * - limpiamos el formulario
+     * - cerramos diálogos
+     * - salimos del modo edición
+     * - mostramos el mensaje de éxito correspondiente
+     * - reseteamos el estado del ViewModel
+     *
+     * La navegación puntual (volver a la primera al eliminar, etc.)
+     * se resuelve recién cuando el usuario aprieta "Aceptar" en el
+     * mensaje de éxito, no acá.
      */
     LaunchedEffect(credencialState) {
+
         if (credencialState is CredencialState.Success) {
 
-            nuevaCredencial = Credencial("", "", "", "")
+            credencial = credencialVacia()
 
-            nombreObraSocial = ""
-            numeroAfiliado = ""
-            plan = ""
-            fechaVencimiento = ""
-
+            showForm = false
             showErrors = false
             showConfirmDialog = false
             showDeleteDialog = false
             isEditingExisting = false
+
+            showSuccessDialog = true
 
             viewModel.resetState()
         }
     }
 
     /*
-     * Cada vez que cambia la página del carrusel:
-     *
-     * - Ocultamos los errores inmediatamente.
-     * - Cerramos el diálogo de eliminación.
-     * - Reseteamos el estado del ViewModel.
-     * - Si es una credencial existente, cargamos sus datos.
-     * - Si es la página de nueva credencial, limpiamos TODO el formulario.
+     * Cada vez que cambia la página, solo disparamos los side effects
+     * "reales" (limpiar errores, cerrar diálogos, resetear el estado
+     * del ViewModel). Los datos que se muestran (credencial, showForm)
+     * ya se recalculan arriba de forma síncrona con `remember`.
      */
     LaunchedEffect(pagerState.currentPage, credenciales) {
 
-        // IMPORTANTE:
-        // Nunca queremos arrastrar los errores de la pantalla anterior.
         showErrors = false
-
         isEditingExisting = false
         showDeleteDialog = false
         showConfirmDialog = false
 
         viewModel.resetState()
-
-        if (pagerState.currentPage < credenciales.size) {
-
-            val credencial = credenciales[pagerState.currentPage]
-
-            credencialActualId = credencial.idCredencial
-
-            nombreObraSocial = credencial.nombreObraSocial
-            numeroAfiliado = credencial.numeroAfiliado
-            plan = credencial.plan
-            fechaVencimiento =
-                formatearFechaParaPicker(credencial.fechaVencimiento)
-
-        } else {
-
-            // Página "Agregar nueva credencial"
-
-            credencialActualId = 0L
-
-            nombreObraSocial = ""
-            numeroAfiliado = ""
-            plan = ""
-            fechaVencimiento = ""
-
-            nuevaCredencial = Credencial("", "", "", "")
-        }
     }
 
-    // El form está habilitado si estoy cargando una credencial nueva,
-    // o si estoy editando una existente que fue desbloqueada con "Editar".
-    val fieldsEnabled = showForm || isEditingExisting
-
     val mostrandoVistaPrevia =
-        nuevaCredencial.nombreObraSocial.isNotBlank() ||
-                nuevaCredencial.numeroAfiliado.isNotBlank() ||
-                nuevaCredencial.plan.isNotBlank() ||
-                nuevaCredencial.fechaVencimiento.isNotBlank()
+        pagerState.currentPage == credenciales.size &&
+                (credencial.nombreObraSocial.isNotBlank() ||
+                        credencial.numeroAfiliado.isNotBlank() ||
+                        credencial.plan.isNotBlank() ||
+                        credencial.fechaVencimiento.isNotBlank())
 
-    val isNombreValid =
-        nombreObraSocial.isNotBlank() &&
-                nombreObraSocial.all {
-                    it.isLetter() || it.isWhitespace()
-                }
-
-    val isNumeroValid =
-        numeroAfiliado.length >= 6 &&
-                numeroAfiliado.all { it.isDigit() }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 16.dp)
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
 
-        // HEADER
-        CommonHeader(
-            title = "Mis Credenciales",
-            onBack = { onBack() }
-        )
-
-        // Contenido desplazable
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = 16.dp)
         ) {
 
-            // CARROUSEL
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp)
-            ) { page ->
+            // HEADER
+            CommonHeader(title = "Mis Credenciales", onBack = { onBack() })
 
-                if (page < credenciales.size) {
+            // CONTENIDO DESPLAZABLE
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+            ) {
 
-                    val credencial = credenciales[page]
+                if (credencialesState is CredencialesState.Loading) {
 
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .padding(horizontal = 4.dp)
-                    ) {
+                    // CARD CON SPINNER MIENTRAS CARGA
 
-                        Box(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-
-                            Image(
-                                painter = painterResource(Res.drawable.credential),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(20.dp),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-
-                                Column {
-
-                                    Text(
-                                        text = credencial.nombreObraSocial.uppercase(),
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = Color.White
-                                    )
-
-                                    Text(
-                                        text = credencial.numeroAfiliado,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = Color.White
-                                    )
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.Bottom
-                                ) {
-
-                                    Column {
-
-                                        Text(
-                                            text = "PLAN",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color.White.copy(alpha = 0.75f)
-                                        )
-
-                                        Text(
-                                            text = credencial.plan,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = Color.White
-                                        )
-                                    }
-
-                                    Column(
-                                        horizontalAlignment = Alignment.End
-                                    ) {
-
-                                        Text(
-                                            text = "VENCIMIENTO",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color.White.copy(alpha = 0.75f)
-                                        )
-
-                                        Text(
-                                            text = formatearVencimiento(
-                                                credencial.fechaVencimiento
-                                            ),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = Color.White
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                } else {
-
-                    // Card gris/azul de "agregar nueva"
                     Card(
                         shape = RoundedCornerShape(20.dp),
                         modifier = Modifier
@@ -372,404 +359,542 @@ fun HealthPlanContent(
                             .height(200.dp)
                             .padding(horizontal = 4.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (mostrandoVistaPrevia)
-                                Color.Transparent
-                            else
-                                Color(0xFFE0E0E0)
+                            containerColor = Color(0xFFE0E0E0)
                         )
                     ) {
-
                         Box(
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                         ) {
+                            Spinner(color = Color(0xFF192DAD))
+                        }
+                    }
 
-                            if (mostrandoVistaPrevia) {
+                } else {
 
-                                Image(
-                                    painter = painterResource(Res.drawable.credential),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
+                    // CARROUSEL
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) { page ->
+
+                        if (page < credenciales.size) {
+
+                            val credencialActual =
+                                credenciales[page]
+
+                            // Si estamos editando esta credencial en particular,
+                            // mostramos el borrador en vivo en vez del dato
+                            // "congelado" que vino del backend.
+                            val estaEditandoEstaPagina =
+                                isEditingExisting && page == pagerState.currentPage
+
+                            val nombreMostrado =
+                                if (estaEditandoEstaPagina)
+                                    credencial.nombreObraSocial
+                                else
+                                    credencialActual.nombreObraSocial
+
+                            val numeroMostrado =
+                                if (estaEditandoEstaPagina)
+                                    credencial.numeroAfiliado
+                                else
+                                    credencialActual.numeroAfiliado
+
+                            val planMostrado =
+                                if (estaEditandoEstaPagina)
+                                    credencial.plan
+                                else
+                                    credencialActual.plan
+
+                            // OJO: el formato de fecha difiere según el origen.
+                            // - credencial.fechaVencimiento (borrador en edición) está en "MM/aaaa"
+                            // - credencialActual.fechaVencimiento (backend) está en "aaaa-MM-dd"
+                            val vencimientoMostrado =
+                                if (estaEditandoEstaPagina)
+                                    formatearVencimientoForm(credencial.fechaVencimiento)
+                                else
+                                    formatearVencimiento(credencialActual.fechaVencimiento)
+
+                            Card(
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .padding(horizontal = 4.dp)
+                            ) {
+
+                                Box(
                                     modifier = Modifier.fillMaxSize()
-                                )
-                            }
-
-                            if (mostrandoVistaPrevia) {
-
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(20.dp),
-                                    verticalArrangement = Arrangement.SpaceBetween
                                 ) {
 
-                                    Column {
+                                    Image(
+                                        painter = painterResource(
+                                            Res.drawable.credential
+                                        ),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
 
-                                        Text(
-                                            text = nuevaCredencial.nombreObraSocial.uppercase(),
-                                            style = MaterialTheme.typography.titleLarge,
-                                            color = Color.White
-                                        )
-
-                                        Spacer(
-                                            modifier = Modifier.height(4.dp)
-                                        )
-
-                                        Text(
-                                            text = nuevaCredencial.numeroAfiliado,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            color = Color.White.copy(alpha = 0.9f)
-                                        )
-                                    }
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.Bottom
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(20.dp),
+                                        verticalArrangement =
+                                            Arrangement.SpaceBetween
                                     ) {
 
                                         Column {
 
                                             Text(
-                                                text = "PLAN",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White.copy(alpha = 0.75f)
+                                                text = nombreMostrado.uppercase(),
+                                                style = MaterialTheme
+                                                    .typography
+                                                    .titleLarge,
+                                                color = Color.White
                                             )
 
                                             Text(
-                                                text = nuevaCredencial.plan,
-                                                style = MaterialTheme.typography.bodyMedium,
+                                                text = numeroMostrado,
+                                                style = MaterialTheme
+                                                    .typography
+                                                    .bodyLarge,
                                                 color = Color.White
                                             )
                                         }
 
-                                        Column(
-                                            modifier = Modifier.wrapContentWidth()
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement =
+                                                Arrangement.SpaceBetween,
+                                            verticalAlignment =
+                                                Alignment.Bottom
                                         ) {
 
-                                            Text(
-                                                text = "VENCIMIENTO",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White.copy(alpha = 0.75f)
-                                            )
+                                            Column {
 
-                                            Text(
-                                                text = formatearVencimientoForm(
-                                                    nuevaCredencial.fechaVencimiento
-                                                ),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = Color.White
+                                                Text(
+                                                    text = "PLAN",
+                                                    style = MaterialTheme
+                                                        .typography
+                                                        .labelSmall,
+                                                    color = Color.White.copy(
+                                                        alpha = 0.75f
+                                                    )
+                                                )
+
+                                                Text(
+                                                    text = planMostrado,
+                                                    style = MaterialTheme
+                                                        .typography
+                                                        .bodyMedium,
+                                                    color = Color.White
+                                                )
+                                            }
+
+                                            Column(
+                                                horizontalAlignment =
+                                                    Alignment.End
+                                            ) {
+
+                                                Text(
+                                                    text = "VENCIMIENTO",
+                                                    style = MaterialTheme
+                                                        .typography
+                                                        .labelSmall,
+                                                    color = Color.White.copy(
+                                                        alpha = 0.75f
+                                                    )
+                                                )
+
+                                                Text(
+                                                    text = vencimientoMostrado,
+                                                    style = MaterialTheme
+                                                        .typography
+                                                        .bodyMedium,
+                                                    color = Color.White
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                        } else {
+
+                            // CARD DE AGREGAR NUEVA
+
+                            Card(
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .padding(horizontal = 4.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor =
+                                        if (mostrandoVistaPrevia)
+                                            Color.Transparent
+                                        else
+                                            Color(0xFFE0E0E0)
+                                )
+                            ) {
+
+                                Box(
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+
+                                    if (mostrandoVistaPrevia) {
+
+                                        Image(
+                                            painter = painterResource(
+                                                Res.drawable.credential
+                                            ),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(20.dp),
+                                            verticalArrangement =
+                                                Arrangement.SpaceBetween
+                                        ) {
+
+                                            Column {
+
+                                                Text(
+                                                    text = credencial
+                                                        .nombreObraSocial
+                                                        .uppercase(),
+                                                    style = MaterialTheme
+                                                        .typography
+                                                        .titleLarge,
+                                                    color = Color.White
+                                                )
+
+                                                Spacer(
+                                                    modifier =
+                                                        Modifier.height(4.dp)
+                                                )
+
+                                                Text(
+                                                    text = credencial
+                                                        .numeroAfiliado,
+                                                    style = MaterialTheme
+                                                        .typography
+                                                        .bodyLarge,
+                                                    color = Color.White.copy(
+                                                        alpha = 0.9f
+                                                    )
+                                                )
+                                            }
+
+                                            Row(
+                                                modifier =
+                                                    Modifier.fillMaxWidth(),
+                                                horizontalArrangement =
+                                                    Arrangement.SpaceBetween,
+                                                verticalAlignment =
+                                                    Alignment.Bottom
+                                            ) {
+
+                                                Column {
+
+                                                    Text(
+                                                        text = "PLAN",
+                                                        style = MaterialTheme
+                                                            .typography
+                                                            .labelSmall,
+                                                        color = Color.White.copy(
+                                                            alpha = 0.75f
+                                                        )
+                                                    )
+
+                                                    Text(
+                                                        text = credencial.plan,
+                                                        style = MaterialTheme
+                                                            .typography
+                                                            .bodyMedium,
+                                                        color = Color.White
+                                                    )
+                                                }
+
+                                                Column(
+                                                    modifier =
+                                                        Modifier.wrapContentWidth()
+                                                ) {
+
+                                                    Text(
+                                                        text = "VENCIMIENTO",
+                                                        style = MaterialTheme
+                                                            .typography
+                                                            .labelSmall,
+                                                        color = Color.White.copy(
+                                                            alpha = 0.75f
+                                                        )
+                                                    )
+
+                                                    Text(
+                                                        text =
+                                                            formatearVencimientoForm(
+                                                                credencial
+                                                                    .fechaVencimiento
+                                                            ),
+                                                        style = MaterialTheme
+                                                            .typography
+                                                            .bodyMedium,
+                                                        color = Color.White
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                    } else {
+
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment =
+                                                Alignment.Center
+                                        ) {
+
+                                            Icon(
+                                                imageVector =
+                                                    Icons.Default.Add,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier =
+                                                    Modifier.size(48.dp)
                                             )
                                         }
                                     }
                                 }
-
-                            } else {
-
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                }
                             }
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // INDICADOR DE PUNTOS
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        repeat(credenciales.size + 1) { index ->
+
+                            val isLast =
+                                index == credenciales.size
+
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        when {
+                                            index == pagerState.currentPage && isLast ->
+                                                Color(0xFF9E9E9E)
+
+                                            index == pagerState.currentPage ->
+                                                Color(0xFF192DAD)
+
+                                            else -> Color(0xFFD0D0D0)
+                                        }
+                                    )
+                                    .clickable {
+
+                                        showErrors = false
+                                        showConfirmDialog = false
+                                        showDeleteDialog = false
+
+                                        viewModel.resetState()
+
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(
+                                                index
+                                            )
+                                        }
+                                    }
+                            )
+                        }
+                    }
+
+                    if (showForm) {
+                        Formulario(
+                            credencial = credencial,
+                            onCredencialChange = { credencial = it },
+                            obrasSocialesDisponibles = obrasSocialesDisponibles,
+                            enabled = true,
+                            showErrors = showErrors,
+                            backendFieldErrors = backendFieldErrors
+                        )
+                    } else {
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            OutlinedButton(
+                                onClick = { showDeleteDialog = true },
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text(
+                                    text = "Eliminar credencial",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
+
+                    // ERROR GENERAL
+                    errorGeneral?.let { mensaje ->
+
+                        Text(
+                            text = mensaje,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = Spacing.sm)
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            // BOTÓN GUARDAR / EDITAR — fijo al pie de la pantalla, fuera del
+            // scroll, para que ambos ocupen siempre la misma posición.
+            if (credencialesState !is CredencialesState.Loading) {
 
-            // Indicador de puntos
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-
-                repeat(credenciales.size + 1) { index ->
-
-                    val isLast = index == credenciales.size
-
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .size(
-                                if (index == pagerState.currentPage)
-                                    10.dp
-                                else
-                                    8.dp
-                            )
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    index == pagerState.currentPage && isLast ->
-                                        Color(0xFF9E9E9E)
-
-                                    index == pagerState.currentPage ->
-                                        Color(0xFF192DAD)
-
-                                    else ->
-                                        Color(0xFFD0D0D0)
-                                }
-                            )
-                            .clickable {
-
-                                // IMPORTANTE:
-                                // Limpiamos los errores ANTES de comenzar
-                                // la animación del pager.
-                                showErrors = false
-
-                                showConfirmDialog = false
-                                showDeleteDialog = false
-
-                                viewModel.resetState()
-
-                                scope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Formulario
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-
-                DropdownSelectField(
-                    label = "Obra social",
-                    value = nombreObraSocial,
-                    options = obrasSocialesDisponibles,
-                    enabled = fieldsEnabled,
-                    onValueChange = {
-                        nombreObraSocial = it
-
-                        if (showForm) {
-                            nuevaCredencial =
-                                nuevaCredencial.copy(
-                                    nombreObraSocial = it
-                                )
-                        }
-                    },
-                    isError =
-                        (showErrors && !isNombreValid) ||
-                                backendFieldErrors.containsKey(
-                                    "nombreObraSocial"
-                                ),
-                    errorMessage =
-                        backendFieldErrors["nombreObraSocial"]
-                            ?: "Este campo es obligatorio",
-                    placeholder = "Seleccioná una obra social"
-                )
+                // Misma validación que usa Formulario para marcar errores.
+                val isFormValid = isCredencialValida(credencial)
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                InputTextField(
-                    label = "N° de Afiliado",
-                    value = numeroAfiliado,
-                    onValueChange = {
-                        numeroAfiliado = it
-
-                        if (showForm) {
-                            nuevaCredencial =
-                                nuevaCredencial.copy(
-                                    numeroAfiliado = it
-                                )
-                        }
-                    },
-                    enabled = fieldsEnabled,
-                    keyboardType = KeyboardType.Number,
-                    placeholder = "Ingresá tu número",
-                    isError =
-                        (showErrors && !isNumeroValid) ||
-                                backendFieldErrors.containsKey(
-                                    "numeroAfiliado"
-                                ),
-                    errorMessage =
-                        backendFieldErrors["numeroAfiliado"]
-                            ?: if (numeroAfiliado.isBlank())
-                                "Este campo es obligatorio"
-                            else
-                                "Mínimo 6 caracteres"
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                DropdownSelectField(
-                    label = "Plan",
-                    value = plan,
-                    options = planesDisponibles,
-                    enabled = fieldsEnabled,
-                    onValueChange = {
-                        plan = it
-
-                        if (showForm) {
-                            nuevaCredencial =
-                                nuevaCredencial.copy(
-                                    plan = it
-                                )
-                        }
-                    },
-                    isError =
-                        (showErrors && plan.isBlank()) ||
-                                backendFieldErrors.containsKey("plan"),
-                    errorMessage =
-                        backendFieldErrors["plan"]
-                            ?: "Este campo es obligatorio",
-                    placeholder = "Seleccioná un plan"
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                InputMonthYearField(
-                    label = "Fecha de Vencimiento",
-                    value = fechaVencimiento,
-                    onValueChange = {
-                        fechaVencimiento = it
-
-                        if (showForm) {
-                            nuevaCredencial =
-                                nuevaCredencial.copy(
-                                    fechaVencimiento = it
-                                )
-                        }
-                    },
-                    enabled = fieldsEnabled,
-                    isError =
-                        (showErrors && fechaVencimiento.isBlank()) ||
-                                backendFieldErrors.containsKey(
-                                    "fechaVencimiento"
-                                ),
-                    errorMessage =
-                        backendFieldErrors["fechaVencimiento"]
-                            ?: if (fechaVencimiento.isBlank())
-                                "Este campo es obligatorio"
-                            else
-                                "",
-                    placeholder = "MM/AAAA"
-                )
-            }
-
-            errorGeneral?.let { mensaje ->
-
-                Text(
-                    text = mensaje,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = Spacing.sm)
-                )
-            }
-
-            Button(
-                onClick = {
-
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     if (showForm) {
 
-                        // Card nueva: pido confirmación antes de subir
-                        showErrors = true
-
-                        if (
-                            isNombreValid &&
-                            isNumeroValid &&
-                            plan.isNotBlank() &&
-                            fechaVencimiento.isNotBlank()
-                        ) {
-                            showConfirmDialog = true
-                        }
-
-                    } else if (!isEditingExisting) {
-
-                        // Credencial existente bloqueada:
-                        // la desbloqueo para editar
-                        isEditingExisting = true
+                        NextButton(
+                            enabled = !isGuardando && isFormValid,
+                            onClick = {
+                                if (
+                                    credencial.nombreObraSocial.isBlank() &&
+                                    credencial.numeroAfiliado.isBlank() &&
+                                    credencial.plan.isBlank() &&
+                                    credencial.fechaVencimiento.isBlank()
+                                ) {
+                                    showErrors = true
+                                } else if (isEditingExisting) {
+                                    pendingAction = PendingAction.Editar
+                                    viewModel.actualizarCredencial(
+                                        idCredencial = credencial.idCredencial,
+                                        nombreObraSocial = credencial.nombreObraSocial,
+                                        numeroAfiliado = credencial.numeroAfiliado,
+                                        plan = credencial.plan,
+                                        fechaVencimiento = credencial.fechaVencimiento
+                                    )
+                                } else {
+                                    pendingAction = PendingAction.Crear
+                                    viewModel.cargarCredencial(
+                                        nombreObraSocial = credencial.nombreObraSocial,
+                                        numeroAfiliado = credencial.numeroAfiliado,
+                                        plan = credencial.plan,
+                                        fechaVencimiento = credencial.fechaVencimiento
+                                    )
+                                }
+                            },
+                            text = "Guardar",
+                            isLoading = isGuardando
+                        )
 
                     } else {
 
-                        // Credencial existente en edición:
-                        // guardo cambios
-                        showErrors = true
-
-                        if (
-                            isNombreValid &&
-                            isNumeroValid &&
-                            plan.isNotBlank() &&
-                            fechaVencimiento.isNotBlank()
-                        ) {
-                            viewModel.actualizarCredencial(
-                                credencialActualId,
-                                nombreObraSocial,
-                                numeroAfiliado,
-                                plan,
-                                fechaVencimiento
-                            )
-                        }
+                        NextButton(
+                            enabled = true,
+                            onClick = { showForm = true; isEditingExisting = true },
+                            text = "Editar"
+                        )
                     }
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6FA8C7)
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-                    .height(52.dp)
-            ) {
-
-                Text(
-                    text = when {
-                        showForm -> "Continuar"
-                        isEditingExisting -> "Guardar"
-                        else -> "Editar"
-                    },
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-
-            if (!showForm) {
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        showDeleteDialog = true
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.error
-                    ),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                ) {
-
-                    Text(
-                        text = "Eliminar credencial",
-                        style = MaterialTheme.typography.labelLarge
-                    )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
+        }
+
+        // ERROR DE OBRAS SOCIALES
+        //
+        // Lo ponemos fuera del Column para que ErrorMessage
+        // pueda ocupar toda la pantalla como overlay.
+
+        if (obrasSocialesState is ObrasSocialesState.Error) {
+
+            val error =
+                obrasSocialesState as ObrasSocialesState.Error
+
+            ErrorMessage(
+                errorText = error.message,
+                buttonText = "Reintentar",
+                onClick = {
+                    viewModel.obtenerObrasSociales()
+                }
+            )
+        }
+
+        // MENSAJE DE ÉXITO
+        //
+        // Se muestra al terminar OK una creación, edición o eliminación.
+        // Qué hacer al aceptar depende de qué operación fue.
+
+        if (showSuccessDialog) {
+
+            val successText = when (pendingAction) {
+                PendingAction.Crear -> "La credencial fue creada con éxito."
+                PendingAction.Editar -> "La credencial fue editada con éxito."
+                PendingAction.Eliminar -> "La credencial fue eliminada con éxito."
+                null -> "La operación se realizó con éxito."
+            }
+
+            SuccessMessage(
+                successText = successText,
+                buttonText = "Aceptar",
+                onClick = {
+
+                    when (pendingAction) {
+
+                        PendingAction.Eliminar -> {
+                            scope.launch { pagerState.animateScrollToPage(0) }
+                        }
+
+                        else -> {
+                            // Crear / Editar: no hace falta mover el
+                            // carrousel, ya quedas viendo la credencial
+                            // correspondiente en su misma posición.
+                        }
+                    }
+
+                    showSuccessDialog = false
+                    pendingAction = null
+                }
+            )
         }
     }
 
-    // Popup de confirmación antes de subir una credencial nueva
+
+    // POPUP DE CONFIRMACIÓN
+
     if (showConfirmDialog) {
 
         AlertDialog(
@@ -789,11 +914,13 @@ fun HealthPlanContent(
                 TextButton(
                     onClick = {
 
+                        pendingAction = PendingAction.Crear
+
                         viewModel.cargarCredencial(
-                            nombreObraSocial,
-                            numeroAfiliado,
-                            plan,
-                            fechaVencimiento
+                            credencial.nombreObraSocial,
+                            credencial.numeroAfiliado,
+                            credencial.plan,
+                            credencial.fechaVencimiento
                         )
 
                         showConfirmDialog = false
@@ -815,7 +942,9 @@ fun HealthPlanContent(
         )
     }
 
-    // Popup de confirmación antes de eliminar una credencial
+
+    // POPUP DE ELIMINACIÓN
+
     if (showDeleteDialog) {
 
         AlertDialog(
@@ -835,13 +964,16 @@ fun HealthPlanContent(
                 TextButton(
                     onClick = {
 
+                        pendingAction = PendingAction.Eliminar
+
                         viewModel.eliminarCredencial(
-                            credencialActualId
+                            credencial.idCredencial
                         )
 
                         showDeleteDialog = false
                     }
                 ) {
+
                     Text(
                         "Eliminar",
                         color = MaterialTheme.colorScheme.error
@@ -862,9 +994,9 @@ fun HealthPlanContent(
     }
 }
 
+
 /**
- * Campo de selección con estilo similar a un InputTextField,
- * pero con menú desplegable para "Obra social" y "Plan".
+ * Campo de selección con menú desplegable.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -887,14 +1019,13 @@ private fun DropdownSelectField(
 
         Text(
             text = label,
-            fontSize = 13.sp,
-            color = Color(0xFF6B6B6B),
-            modifier = Modifier.padding(bottom = 4.dp)
+            style = MaterialTheme.typography.bodyLarge
         )
-
+        Spacer(modifier = Modifier.height(Spacing.sm))
         ExposedDropdownMenuBox(
             expanded = expanded && enabled,
             onExpandedChange = {
+
                 if (enabled) {
                     expanded = it
                 }
@@ -908,6 +1039,7 @@ private fun DropdownSelectField(
                 enabled = enabled,
                 isError = isError,
                 trailingIcon = {
+
                     Icon(
                         Icons.Default.KeyboardArrowDown,
                         contentDescription = null
@@ -917,29 +1049,43 @@ private fun DropdownSelectField(
                 colors = OutlinedTextFieldDefaults.colors(
                     disabledBorderColor = Color(0xFFD0D0D0),
                     disabledTextColor = Color(0xFF333333),
-                    disabledTrailingIconColor = Color(0xFF9E9E9E)
+                    disabledTrailingIconColor =
+                        Color(0xFF9E9E9E)
                 ),
-                placeholder = if (placeholder != null) {
-                    {
-                        Text(
-                            text = placeholder,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                } else {
-                    null
-                },
+                placeholder =
+                    if (placeholder != null) {
+
+                        {
+                            Text(
+                                text = placeholder,
+                                style = MaterialTheme
+                                    .typography
+                                    .bodyLarge
+                            )
+                        }
+
+                    } else {
+                        null
+                    },
                 supportingText = {
+
                     if (isError) {
+
                         Text(
                             text = errorMessage,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme
+                                .colorScheme
+                                .error
                         )
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .menuAnchor( ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled=true)
+                    .menuAnchor(
+                        ExposedDropdownMenuAnchorType
+                            .PrimaryNotEditable,
+                        enabled = true
+                    )
             )
 
             ExposedDropdownMenu(
@@ -968,23 +1114,23 @@ private fun DropdownSelectField(
     }
 }
 
+
 private fun formatearVencimiento(
     fecha: String
 ): String {
 
-    return try {
+    val partes = fecha.split("-")
 
-        val partes = fecha.split("-")
-
-        val anio = partes[0].takeLast(2)
-        val mes = partes[1]
-
-        "$mes/$anio"
-
-    } catch (e: Exception) {
-        fecha
+    if (partes.size < 2) {
+        return fecha
     }
+
+    val anio = partes[0].takeLast(2)
+    val mes = partes[1]
+
+    return "$mes/$anio"
 }
+
 
 private fun formatearFechaParaPicker(
     fecha: String
@@ -996,16 +1142,10 @@ private fun formatearFechaParaPicker(
         return fecha
     }
 
-    return try {
+    val anio = partes[0].toIntOrNull() ?: return fecha
+    val mes = partes[1].toIntOrNull() ?: return fecha
 
-        val anio = partes[0].toInt()
-        val mes = partes[1].toInt()
-
-        "${mes.toString().padStart(2, '0')}/$anio"
-
-    } catch (e: NumberFormatException) {
-        fecha
-    }
+    return "${mes.toString().padStart(2, '0')}/$anio"
 }
 
 private fun formatearVencimientoForm(
@@ -1019,4 +1159,116 @@ private fun formatearVencimientoForm(
     }
 
     return "${partes[0]}/${partes[1].takeLast(2)}"
+}
+
+@Composable
+fun Formulario(
+    credencial: Credencial,
+    onCredencialChange: (Credencial) -> Unit,
+    obrasSocialesDisponibles: List<String>,
+    enabled: Boolean,
+    showErrors: Boolean,
+    backendFieldErrors: Map<String, String>
+) {
+
+    // Validaciones de inputs
+    val isNombreValid = isNombreValido(credencial)
+    val isNumeroValid = isNumeroValido(credencial)
+    val isFechaValid = isFechaVencimientoValida(credencial)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+
+        // Obra social
+        DropdownSelectField(
+            label = "Obra social",
+            value = credencial.nombreObraSocial,
+            options = obrasSocialesDisponibles,
+            enabled = enabled,
+            onValueChange = {
+                onCredencialChange(
+                    credencial.copy(
+                        nombreObraSocial = it
+                    )
+                )
+            },
+            isError =
+                (showErrors && !isNombreValid) ||
+                        backendFieldErrors.containsKey("nombreObraSocial"),
+            errorMessage =
+                backendFieldErrors["nombreObraSocial"]
+                    ?: "Este campo es obligatorio",
+            placeholder = "Seleccioná una obra social"
+        )
+
+        // Número de afiliado
+        InputTextField(
+            label = "N° de Afiliado",
+            value = credencial.numeroAfiliado,
+            onValueChange = {
+                onCredencialChange(
+                    credencial.copy(
+                        numeroAfiliado = it
+                    )
+                )
+            },
+            enabled = enabled,
+            keyboardType = KeyboardType.Number,
+            placeholder = "Ingresá tu número",
+            isError =
+                (showErrors && !isNumeroValid) ||
+                        backendFieldErrors.containsKey("numeroAfiliado"),
+            errorMessage =
+                backendFieldErrors["numeroAfiliado"]
+                    ?: if (credencial.numeroAfiliado.isBlank())
+                        "Este campo es obligatorio"
+                    else
+                        "Mínimo 6 caracteres"
+        )
+
+        // Plan
+        InputTextField(
+            label = "Plan",
+            value = credencial.plan,
+            onValueChange = {
+                onCredencialChange(
+                    credencial.copy(
+                        plan = it
+                    )
+                )
+            },
+            enabled = enabled,
+            placeholder = "Ingresá tu plan",
+            isError =
+                (showErrors && credencial.plan.isBlank()) ||
+                        backendFieldErrors.containsKey("plan"),
+            errorMessage =
+                backendFieldErrors["plan"]
+                    ?: "Este campo es obligatorio"
+        )
+
+        // Fecha de vencimiento
+        InputMonthYearField(
+            label = "Fecha de Vencimiento",
+            value = credencial.fechaVencimiento,
+            onValueChange = {
+                onCredencialChange(
+                    credencial.copy(
+                        fechaVencimiento = it
+                    )
+                )
+            },
+            enabled = enabled,
+            isError =
+                (showErrors && !isFechaValid) ||
+                        backendFieldErrors.containsKey("fechaVencimiento"),
+            errorMessage =
+                backendFieldErrors["fechaVencimiento"]
+                    ?: if (credencial.fechaVencimiento.isBlank())
+                        "Este campo es obligatorio"
+                    else
+                        "La fecha no puede ser anterior al mes actual",
+            placeholder = "MM/AAAA"
+        )
+    }
+
 }
