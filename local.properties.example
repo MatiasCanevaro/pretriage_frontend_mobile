@@ -1,0 +1,17 @@
+# Copy to local.properties and fill in your own values. Never commit local.properties.
+# Windows: use forward slashes. IntelliJ can also configure sdk.dir automatically.
+sdk.dir=C:/Users/YOUR_USER/AppData/Local/Android/Sdk
+
+# Android Emulator -> backend on the host PC. This is also the default if omitted.
+BACKEND_BASE_URL=http://10.0.2.2:8080
+# Physical phone: use your backend computer's LAN IP and the same network.
+# BACKEND_BASE_URL=http://192.168.1.100:8080
+# iOS Simulator with backend on the same Mac:
+# BACKEND_BASE_URL=http://localhost:8080
+# Shared remote backend:
+# BACKEND_BASE_URL=https://api.example.com
+
+# Optional development token. Leave blank to use normal sign-in.
+DEV_TOKEN=
+MAPS_API_KEY=REPLACE_WITH_YOUR_MAPS_API_KEY
+AUTH0_CLIENT_ID=REPLACE_WITH_YOUR_AUTH0_CLIENT_ID
