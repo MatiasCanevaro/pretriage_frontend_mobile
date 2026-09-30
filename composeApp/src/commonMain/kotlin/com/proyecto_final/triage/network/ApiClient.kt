@@ -12,6 +12,7 @@ import io.ktor.client.plugins.auth.*
 import io.ktor.client.plugins.auth.providers.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.sse.SSE
+import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -27,6 +28,8 @@ val httpClient = HttpClient {
         socketTimeoutMillis = 60_000
     }
     install(SSE)
+    // Chat de voz (/api/chat/{id}/voz). Requiere un engine con soporte WebSocket (OkHttp / Darwin).
+    install(WebSockets)
     install(Auth) {
         bearer {
 

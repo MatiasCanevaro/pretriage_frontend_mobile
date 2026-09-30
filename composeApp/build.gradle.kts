@@ -112,7 +112,7 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
-            implementation(libs.ktor.client.android)
+            implementation(libs.ktor.client.okhttp)
             implementation(libs.maps.compose)
             implementation(libs.play.services.maps)
             implementation(libs.androidx.core.splashscreen)
