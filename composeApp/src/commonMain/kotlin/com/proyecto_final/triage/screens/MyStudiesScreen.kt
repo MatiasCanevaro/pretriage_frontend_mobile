@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -52,6 +53,154 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+
+class MyStudiesScreen : Screen {
+
+    @Composable
+    override fun Content() {
+        val navigator = LocalNavigator.current
+        val viewModel = LocalStudiesViewModel.current
+
+        MyStudiesContent(
+            onBack = { navigator?.pop() },
+            onAddStudy = { navigator?.push(AddStudyScreen()) },
+            onStudyClick = { estudio -> navigator?.push(MyStudyScreen(estudio)) },
+            viewModel = viewModel
+        )
+    }
+
+}
+
+@Composable
+fun MyStudiesContent(   onBack: () -> Unit,
+                        onAddStudy: () -> Unit,
+                        onStudyClick: (EstudioClinicoDTO) -> Unit,
+                        viewModel: StudiesViewModel
+) {
+    val state by viewModel.state.collectAsState()
+    val mensajeExito by viewModel.mensajeExito.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.cargarEstudios()
+    }
+
+    LaunchedEffect(mensajeExito) {
+        mensajeExito?.let { mensaje ->
+            snackbarHostState.showSnackbar(
+                message = mensaje,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.limpiarMensajeExito()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+
+            Column( modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .systemBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                // Título de la pantalla
+                CommonHeader(title = "Mis estudios", onBack = { onBack() })
+
+                Spacer(modifier = Modifier.height(Spacing.lg))
+
+                when (state) {
+
+                    is EstudiosState.Loading -> {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                    }
+
+                    is EstudiosState.Error -> {
+                        Text((state as EstudiosState.Error).message)
+                    }
+
+                    is EstudiosState.Success -> {
+                        val estudios = (state as EstudiosState.Success).estudios
+
+                        if (estudios.isEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().height(130.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF2F2F2)),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "No hay estudios disponibles",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = Color.Gray
+                                    )
+
+                                }
+                            }
+                        } else {
+                            estudios.forEach { estudio ->
+                                StudyCard(
+                                    estudio = estudio,
+                                    onClick = { onStudyClick(estudio) }
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
+
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onAddStudy,
+                        shape = RoundedCornerShape(25)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Agregar estudio")
+                    }
+                }
+            }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 36.dp, start = 16.dp, end = 16.dp)
+        ) { data ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFE3F2FD))
+                    .padding(Spacing.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Info,
+                    contentDescription = null,
+                    tint = Color(0xFF5BB8D4),
+                    modifier = Modifier.size(Spacing.lg)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = data.visuals.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF5BB8D4)
+                )
+            }
+        }
+    }
+}
 
 private fun obtenerIconoPorTipo(tipoArchivo: String): ImageVector {
     return when (tipoArchivo) {
@@ -130,21 +279,6 @@ fun StudyCard(estudio: EstudioClinicoDTO, onClick: () -> Unit) {
     }
 }
 
-class MyStudiesScreen : Screen {
-    @Composable
-    override fun Content() {
-        val navigator = LocalNavigator.current
-        val viewModel = LocalStudiesViewModel.current
-
-        MyStudiesContent(
-            onBack = { navigator?.pop() },
-            onAddStudy = { navigator?.push(AddStudyScreen()) },
-            onStudyClick = { estudio -> navigator?.push(MyStudyScreen(estudio)) },
-            viewModel = viewModel
-        )
-    }
-}
-
 @Preview
 @Composable
 fun MyStudiesPreview() {
@@ -154,137 +288,5 @@ fun MyStudiesPreview() {
             onStudyClick = {},
             viewModel = StudiesViewModel()
         )
-    }
-}
-
-@Composable
-fun MyStudiesContent(   onBack: () -> Unit,
-                        onAddStudy: () -> Unit,
-                        onStudyClick: (EstudioClinicoDTO) -> Unit,
-                        viewModel: StudiesViewModel
-) {
-    val state by viewModel.state.collectAsState()
-    val mensajeExito by viewModel.mensajeExito.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(Unit) {
-        viewModel.cargarEstudios()
-    }
-
-    LaunchedEffect(mensajeExito) {
-        mensajeExito?.let { mensaje ->
-            snackbarHostState.showSnackbar(
-                message = mensaje,
-                duration = SnackbarDuration.Short // se va solo a los ~4 segundos
-            )
-            viewModel.limpiarMensajeExito()
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-
-        Scaffold { paddingValues ->
-
-            Column( modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-            ) {
-                CommonHeader(title = "Mis estudios",
-                    onBack = { onBack() })
-
-                Spacer(modifier = Modifier.height(Spacing.lg))
-
-                when(state) {
-
-                    is EstudiosState.Loading -> {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                    }
-
-                    is EstudiosState.Error -> {
-                        Text((state as EstudiosState.Error).message)
-                    }
-
-                    is EstudiosState.Success -> {
-                        val estudios = (state as EstudiosState.Success).estudios
-
-                        if (estudios.isEmpty()) {
-                            Card(modifier = Modifier.fillMaxWidth().height(130.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF2F2F2)),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Box(modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(text = "No hay estudios disponibles",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = Color.Gray)
-
-                                }
-                            }
-                        } else {
-                            estudios.forEach { estudio ->
-                                StudyCard(
-                                    estudio = estudio,
-                                    onClick = { onStudyClick(estudio) }
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
-                        }
-
-                    }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Button(
-                        onClick = onAddStudy,
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Agregar estudio")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 36.dp, start = 16.dp, end = 16.dp)
-        ) { data ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFE3F2FD))
-                    .padding(Spacing.md),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Info,
-                    contentDescription = null,
-                    tint = Color(0xFF5BB8D4),
-                    modifier = Modifier.size(Spacing.lg)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = data.visuals.message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF5BB8D4)
-                )
-            }
-        }
     }
 }

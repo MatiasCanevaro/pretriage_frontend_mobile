@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.RemoveRedEye
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,17 +22,16 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import com.proyecto_final.triage.components.CommonHeader
+import com.proyecto_final.triage.components.ErrorMessage
+import com.proyecto_final.triage.filesaver.FileSaver
+import com.proyecto_final.triage.filesaver.FileViewer
+import com.proyecto_final.triage.filesaver.rememberPlatformContext
 import com.proyecto_final.triage.network.EstudioClinicoDTO
 import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.LocalStudiesViewModel
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.number
-import com.proyecto_final.triage.filesaver.FileSaver
-import com.proyecto_final.triage.filesaver.rememberPlatformContext
-import androidx.compose.material.icons.filled.Science
-import androidx.compose.material3.HorizontalDivider
-import com.proyecto_final.triage.filesaver.FileViewer
 
 class MyStudyScreen(
     private val estudio: EstudioClinicoDTO
@@ -51,122 +51,196 @@ class MyStudyScreen(
         var cargandoVer by remember { mutableStateOf(false) }
         var cargandoDescarga by remember { mutableStateOf(false) }
 
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) }
-        ) { paddingValues ->
+        // Error de cualquiera de las acciones (ver, descargar, eliminar). null = sin error
+        var errorAccion by remember { mutableStateOf<ErrorAccion?>(null) }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
+        val nombreArchivo = estudio.nombreArchivo
+            ?: "estudio_${estudio.id}.${estudio.extensionArchivo ?: "pdf"}"
 
-                CommonHeader(
-                    title = "Detalle del estudio",
-                    onBack = { navigator?.pop() }
-                )
+        /*
+         * ================================================================
+         * ACCIONES
+         * Cada acción es una función, así el "Reintentar" del error
+         * vuelve a ejecutar exactamente la misma acción que falló.
+         * ================================================================
+         */
 
-                Spacer(modifier = Modifier.height(Spacing.lg))
+        fun mostrarError(mensaje: String, error: Throwable? = null, reintentar: () -> Unit) {
+            error?.let { println("MyStudyScreen - $mensaje: ${it.stackTraceToString()}") }
+            errorAccion = ErrorAccion(mensaje = mensaje, reintentar = reintentar)
+        }
 
-                val nombreArchivo = estudio.nombreArchivo
-                    ?: "estudio_${estudio.id}.${estudio.extensionArchivo ?: "pdf"}"
+        fun verArchivo() {
+            errorAccion = null
+            cargandoVer = true
 
-                EstudioDetalleContent(
-                    estudio = estudio,
-                    cargandoVer = cargandoVer,
-                    cargandoDescarga = cargandoDescarga,
-                    onVerArchivo = {
-                        cargandoVer = true
+            scope.launch {
+                val existe = FileViewer.archivoExisteLocalmente(platformContext, nombreArchivo)
+
+                // Ya está en el celular: solo lo abro
+                if (existe) {
+                    FileViewer.abrirArchivo(platformContext, nombreArchivo)
+                        .onFailure { error ->
+                            mostrarError(
+                                "No se pudo abrir el archivo. Verificá que tengas una app para abrir este tipo de archivo.",
+                                error
+                            ) { verArchivo() }
+                        }
+                    cargandoVer = false
+                    return@launch
+                }
+
+                // No está en el celular: lo descargo, lo guardo y lo abro
+                viewModel.descargarEstudioClinico(
+                    idEstudio = estudio.id,
+                    onSuccess = { bytes ->
                         scope.launch {
-                            val existe = FileViewer.archivoExisteLocalmente(platformContext, nombreArchivo)
-
-                            if (existe) {
-                                FileViewer.abrirArchivo(platformContext, nombreArchivo)
-                                    .onFailure {
-                                        snackbarHostState.showSnackbar("No se pudo abrir el archivo")
-                                    }
-                                cargandoVer = false
-                            } else {
-                                viewModel.descargarEstudioClinico(
-                                    idEstudio = estudio.id,
-                                    onSuccess = { bytes ->
-                                        scope.launch {
-                                            FileViewer.guardarLocalmente(platformContext, nombreArchivo, bytes)
-                                                .onSuccess {
-                                                    FileViewer.abrirArchivo(platformContext, nombreArchivo)
-                                                }
-                                                .onFailure {
-                                                    snackbarHostState.showSnackbar("No se pudo guardar el archivo")
-                                                }
-                                            cargandoVer = false
+                            FileViewer.guardarLocalmente(platformContext, nombreArchivo, bytes)
+                                .onSuccess {
+                                    FileViewer.abrirArchivo(platformContext, nombreArchivo)
+                                        .onFailure { error ->
+                                            mostrarError(
+                                                "No se pudo abrir el archivo. Verificá que tengas una app para abrir este tipo de archivo.",
+                                                error
+                                            ) { verArchivo() }
                                         }
-                                    },
-                                    onError = {
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Error al descargar el estudio")
-                                            cargandoVer = false
-                                        }
-                                    }
-                                )
-                            }
+                                }
+                                .onFailure { error ->
+                                    mostrarError("No se pudo guardar el archivo en el celular.", error) { verArchivo() }
+                                }
+                            cargandoVer = false
                         }
                     },
-                    onDownload = { id ->
-                        cargandoDescarga = true
-                        viewModel.descargarEstudioClinico(
-                            idEstudio = id,
-                            onSuccess = { bytes ->
-                                scope.launch {
-                                    FileSaver.saveToDownloads(
-                                        context = platformContext,
-                                        fileName = nombreArchivo,
-                                        bytes = bytes
-                                    ).onSuccess {
-                                        snackbarHostState.showSnackbar("Archivo guardado")
-                                    }.onFailure {
-                                        snackbarHostState.showSnackbar("No se pudo guardar el archivo")
-                                    }
-                                    cargandoDescarga = false
-                                }
-                            },
-                            onError = {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Error al descargar")
-                                    cargandoDescarga = false
-                                }
-                            }
-                        )
+                    onError = { mensaje ->
+                        cargandoVer = false
+                        mostrarError(mensaje) { verArchivo() }
                     }
                 )
+            }
+        }
 
-                Spacer(modifier = Modifier.height(20.dp))
+        fun descargar() {
+            errorAccion = null
+            cargandoDescarga = true
 
-                Row(
+            viewModel.descargarEstudioClinico(
+                idEstudio = estudio.id,
+                onSuccess = { bytes ->
+                    scope.launch {
+                        val resultado = FileSaver.saveToDownloads(
+                            context = platformContext,
+                            fileName = nombreArchivo,
+                            bytes = bytes
+                        )
+                        // Apago el spinner ANTES del snackbar: showSnackbar espera
+                        // a que el snackbar se cierre, y el botón quedaría cargando
+                        cargandoDescarga = false
+
+                        resultado
+                            .onSuccess {
+                                snackbarHostState.showSnackbar("Archivo guardado en Descargas")
+                            }
+                            .onFailure { error ->
+                                mostrarError("No se pudo guardar el archivo en Descargas.", error) { descargar() }
+                            }
+                    }
+                },
+                onError = { mensaje ->
+                    cargandoDescarga = false
+                    mostrarError(mensaje) { descargar() }
+                }
+            )
+        }
+
+        fun eliminar() {
+            errorAccion = null
+
+            viewModel.eliminarEstudioClinico(
+                idEstudio = estudio.id,
+                onSuccess = { navigator?.pop() },
+                onError = { mensaje ->
+                    mostrarError(mensaje) { eliminar() }
+                }
+            )
+        }
+
+        /*
+         * ================================================================
+         * PANTALLA
+         * ================================================================
+         */
+
+        Box(modifier = Modifier.fillMaxSize()) {
+
+            Scaffold(
+                snackbarHost = { SnackbarHost(snackbarHostState) }
+            ) { paddingValues ->
+
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp),
-                    horizontalArrangement = Arrangement.Center
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    OutlinedButton(
-                        onClick = { mostrarConfirmacion = true },
-                        enabled = !eliminando,
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color(0xFFFCEAEA),
-                            contentColor = Color(0xFFE05353)
-                        ),
-                        border = BorderStroke(1.dp, Color(0xFFF2A6A6)),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp)
+
+                    CommonHeader(
+                        title = "Detalle del estudio",
+                        onBack = { navigator?.pop() }
+                    )
+
+                    Spacer(modifier = Modifier.height(Spacing.lg))
+
+                    EstudioDetalleContent(
+                        estudio = estudio,
+                        cargandoVer = cargandoVer,
+                        cargandoDescarga = cargandoDescarga,
+                        onVerArchivo = { verArchivo() },
+                        onDownload = { descargar() }
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 24.dp),
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        if (eliminando) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color(0xFFE05353))
-                        } else {
-                            Text("Eliminar estudio")
+                        OutlinedButton(
+                            onClick = { mostrarConfirmacion = true },
+                            enabled = !eliminando,
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = Color(0xFFFCEAEA),
+                                contentColor = Color(0xFFE05353),
+                                disabledContainerColor = Color(0xFFFCEAEA),
+                                disabledContentColor = Color(0xFFE05353)
+                            ),
+                            border = BorderStroke(1.dp, Color(0xFFF2A6A6)),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp)
+                        ) {
+                            if (eliminando) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = Color(0xFFE05353),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Eliminar estudio")
+                            }
                         }
                     }
                 }
+            }
+
+            // Overlay de error: va al final del Box para quedar por encima de todo.
+            // "Reintentar" vuelve a ejecutar la acción que falló.
+            errorAccion?.let { accion ->
+                ErrorMessage(
+                    errorText = accion.mensaje,
+                    onClick = accion.reintentar
+                )
             }
         }
 
@@ -179,11 +253,7 @@ class MyStudyScreen(
                     TextButton(
                         onClick = {
                             mostrarConfirmacion = false
-                            viewModel.eliminarEstudioClinico(
-                                idEstudio = estudio.id,
-                                onSuccess = { navigator?.pop() },
-                                onError = { /* TODO */ }
-                            )
+                            eliminar()
                         }
                     ) {
                         Text("Eliminar", color = Color(0xFFE05353))
@@ -198,6 +268,14 @@ class MyStudyScreen(
         }
     }
 }
+
+/**
+ * Error de una acción de la pantalla, con lo que hay que hacer al tocar "Reintentar".
+ */
+private data class ErrorAccion(
+    val mensaje: String,
+    val reintentar: () -> Unit
+)
 
 @Composable
 private fun EstudioDetalleContent(
@@ -343,6 +421,9 @@ private fun EstudioDetalleContent(
 private fun formatearTamano(bytes: Long?): String {
     if (bytes == null) return "-"
     val kb = bytes / 1024.0
-    return if (kb < 1024) { "${kb.toInt()} KB" }
-            else { "${(kb / 1024).toInt()} MB" }
+    return if (kb < 1024) {
+        "${kb.toInt()} KB"
+    } else {
+        "${(kb / 1024).toInt()} MB"
+    }
 }
