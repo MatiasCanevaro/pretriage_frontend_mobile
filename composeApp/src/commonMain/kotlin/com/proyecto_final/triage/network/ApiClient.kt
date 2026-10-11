@@ -29,7 +29,8 @@ val httpClient = HttpClient {
     install(SSE)
     install(Auth) {
         bearer {
-
+            // deshabilito el caching para evitar que guarde un token del anterior usuario que inicio sesión
+            cacheTokens = false // para que ejecute el lambda 'block' de loadTokens
             // Carga el token actual
             loadTokens {
                 val token = TokenStorageProvider.instance.getToken()
