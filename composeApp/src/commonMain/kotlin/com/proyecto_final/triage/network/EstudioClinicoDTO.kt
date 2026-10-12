@@ -1,6 +1,7 @@
 package com.proyecto_final.triage.network
 
 import kotlinx.serialization.Serializable
+import com.proyecto_final.triage.utils.JavaSerializable
 
 @Serializable
 data class EstudioClinicoDTO(
@@ -13,4 +14,4 @@ data class EstudioClinicoDTO(
     val fechaSubida: String? = null,
     val tamanoArchivo: Long? = null,
     val rutaArchivo: String? = null
-)
+) : JavaSerializable
