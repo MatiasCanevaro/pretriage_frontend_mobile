@@ -72,6 +72,22 @@ The initial `SplashScreen` requests `/`. An unauthenticated HTTP 401 response me
 the backend is reachable; the app can continue to sign-in. A connection timeout
 or refused connection triggers the generic “Algo salió mal” dialog.
 
+### Chat after cancelling a consultation
+
+Mobile clears its saved chat ID after a successful cancellation
+(`POST /api/paciente/consulta/cancelar`, with state `CANCELADA`) and after a
+successful new hospital selection (`POST /api/atencion/hospital`, HTTP 204).
+The next chat screen creates a new interview, including when the same hospital
+and specialty are selected again. Failed requests preserve the saved chat ID;
+leaving and reopening the chat within the same consultation still restores it.
+The previous chat and its messages remain in the backend as history.
+
+Manual regression: select a hospital, complete or partially answer the chat,
+cancel the consultation, select the same hospital/specialty again and open chat.
+It must show only the initial greeting and allow writing. Leave and reopen this
+new chat to confirm that its messages are restored. Check that a rejected
+cancellation or hospital selection does not discard the existing chat.
+
 ### Build and Run iOS Application
 
 To build and run the development version of the iOS app, use the run configuration from the run widget

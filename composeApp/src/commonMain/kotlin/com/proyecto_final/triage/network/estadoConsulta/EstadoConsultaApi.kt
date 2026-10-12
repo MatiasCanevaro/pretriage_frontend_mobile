@@ -2,6 +2,7 @@ package com.proyecto_final.triage.network.estadoConsulta
 
 import com.proyecto_final.triage.config.AppConfig
 import com.proyecto_final.triage.network.httpClient
+import com.proyecto_final.triage.storage.ChatStorage
 import com.proyecto_final.triage.utils.parsearMensajeError
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -108,7 +109,13 @@ suspend fun cancelarSeleccionHospital(): Result<EstadoConsultaPacienteDTO> {
         val response = httpClient.post("${AppConfig.baseUrl}/api/paciente/consulta/cancelar")
 
         if (response.status == HttpStatusCode.OK) {
-            Result.success(response.body<EstadoConsultaPacienteDTO>())
+            val estado = response.body<EstadoConsultaPacienteDTO>()
+            // El backend conserva el historial y cierra el chat de la consulta cancelada.
+            // Solo descartamos su referencia local tras confirmar la cancelacion.
+            if (estado.estadoConsulta == "CANCELADA" || estado.estadoEntradaCola == "CANCELADA") {
+                ChatStorage.clearChatId()
+            }
+            Result.success(estado)
         } else {
             val errorBody = response.bodyAsText()
             Result.failure(Exception(parsearMensajeError(errorBody)))

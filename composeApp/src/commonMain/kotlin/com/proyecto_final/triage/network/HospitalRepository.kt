@@ -1,6 +1,7 @@
 package com.proyecto_final.triage.network
 
 import com.proyecto_final.triage.config.AppConfig
+import com.proyecto_final.triage.storage.ChatStorage
 import com.proyecto_final.triage.utils.parsearMensajeError
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -92,6 +93,9 @@ suspend fun elegirHospital(
         }
 
         if (response.status == HttpStatusCode.NoContent) {
+            // Una seleccion confirmada inicia otra consulta, incluso en el mismo hospital.
+            // El proximo ChatViewModel debe crear un chat nuevo, no recuperar el anterior.
+            ChatStorage.clearChatId()
             Result.success(Unit)
         } else {
             val errorBody = response.bodyAsText()
