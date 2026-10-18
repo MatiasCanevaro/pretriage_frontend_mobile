@@ -4,9 +4,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -39,9 +39,12 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
 
         var selectedHospital by remember { mutableStateOf<Hospital?>(null) }
 
-        // ENVIO LA REQUEST PARA BUSCAR HOSPITALES — incluye orden
-        LaunchedEffect(ubicacion, type, ordenSeleccionado) {
-            val (lat, lon) = ubicacion.split(",").map { it.trim().toDouble() }
+        // Parseo la ubicación una sola vez
+        val (lat, lon) = remember(ubicacion) {
+            ubicacion.split(",").map { it.trim().toDouble() }
+        }
+
+        val buscar = {
             viewModel.buscarHospitalesCercanos(
                 latitud = lat,
                 longitud = lon,
@@ -50,70 +53,51 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
             )
         }
 
+        // ENVIO LA REQUEST PARA BUSCAR HOSPITALES — incluye orden
+        LaunchedEffect(ubicacion, type, ordenSeleccionado) {
+            buscar()
+        }
+
         LaunchedEffect(viewModel.hospitalSeleccionado) {
             if (viewModel.hospitalSeleccionado) {
                 navigator?.popUntilRoot()
             }
         }
 
-        when (state) {
-
-            is HospitalesState.Loading -> {
-                Spinner(color = Color(0xFF5BB8D4))
-            }
-
-            is HospitalesState.Error -> {
-                ErrorBanner( message = state.mensaje,
-                             buttonText = "Reintentar",
-                             icon = Icons.Filled.ErrorOutline,
-                             onButtonClick = {
-                                 val (lat, lon) = ubicacion.split(",").map { it.trim().toDouble() }
-                                 viewModel.buscarHospitalesCercanos(
-                                     latitud = lat,
-                                     longitud = lon,
-                                     codigoEspecialidad = type,
-                                     orden = ordenSeleccionado
-                                 )
-                    }
+        HospitalesContent(
+            state = state,
+            selectedHospital = selectedHospital,
+            ordenSeleccionado = ordenSeleccionado,
+            onRetry = { buscar() },
+            onOrdenChange = { nuevoOrden ->
+                selectedHospital = null
+                viewModel.cambiarOrden(
+                    nuevoOrden = nuevoOrden,
+                    latitud = lat,
+                    longitud = lon,
+                    codigoEspecialidad = type
                 )
+            },
+            onBack = { navigator?.pop() },
+            onHospitalSelected = { hospital -> selectedHospital = hospital },
+            onContinue = {
+                selectedHospital?.let { hospital ->
+                    viewModel.seleccionarHospital(
+                        hospital = hospital,
+                        codigoEspecialidad = type
+                    )
+                }
             }
-
-            is HospitalesState.Success -> {
-                HospitalesContent(
-                    hospitales = state.hospitales.map { it.toHospital() },
-                    selectedHospital = selectedHospital,
-                    ordenSeleccionado = ordenSeleccionado,
-                    onOrdenChange = { nuevoOrden ->
-                        val (lat, lon) = ubicacion.split(",").map { it.trim().toDouble() }
-                        selectedHospital = null
-                        viewModel.cambiarOrden(
-                            nuevoOrden = nuevoOrden,
-                            latitud = lat,
-                            longitud = lon,
-                            codigoEspecialidad = type
-                        )
-                    },
-                    onBack = { navigator?.pop() },
-                    onHospitalSelected = { hospital -> selectedHospital = hospital },
-                    onContinue = {
-                        selectedHospital?.let { hospital ->
-                            viewModel.seleccionarHospital(
-                                hospital = hospital,
-                                codigoEspecialidad = type
-                            )
-                        }
-                    }
-                )
-            }
-        }
+        )
     }
 }
 
 @Composable
 fun HospitalesContent(
-    hospitales: List<Hospital>,
+    state: HospitalesState,
     selectedHospital: Hospital?,
     ordenSeleccionado: OrdenHospital,
+    onRetry: () -> Unit,
     onOrdenChange: (OrdenHospital) -> Unit,
     onBack: () -> Unit,
     onHospitalSelected: (Hospital) -> Unit,
@@ -126,6 +110,7 @@ fun HospitalesContent(
             .padding(horizontal = 16.dp)
     ) {
 
+        // SIEMPRE VISIBLE
         CommonHeader(
             title = "3. Elegí el hospital",
             subtitle = "Calculamos las mejores opciones para vos",
@@ -147,36 +132,58 @@ fun HospitalesContent(
 
         Spacer(modifier = Modifier.height(Spacing.md))
 
-        // SOLO ESTA PARTE SCROLLEA
-        Column(
+        // SOLO ESTA ZONA CAMBIA SEGÚN EL ESTADO
+        Box(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
         ) {
+            when (state) {
 
-            if (hospitales.isEmpty()) {
+                is HospitalesState.Loading -> {
+                    Spinner(color = Color(0xFF5BB8D4))
+                }
 
-                Text(
-                    text = "No hay hospitales disponibles para atención en este momento.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 24.dp)
-                )
-
-            } else {
-
-                hospitales.forEach { hospital ->
-
-                    HospitalCard(
-                        hospital = hospital,
-                        selected = selectedHospital?.idHospital == hospital.idHospital,
-                        onClick = {
-                            onHospitalSelected(hospital)
-                        }
+                is HospitalesState.Error -> {
+                    ErrorBanner(
+                        message = state.mensaje,
+                        buttonText = "Reintentar",
+                        icon = Icons.Filled.ErrorOutline,
+                        onButtonClick = onRetry
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                is HospitalesState.Success -> {
+                    val hospitales = remember(state.hospitales) {
+                        state.hospitales.map { it.toHospital() }
+                    }
+
+                    if (hospitales.isEmpty()) {
+                        Text(
+                            text = "No hay hospitales disponibles para atención en este momento.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 24.dp)
+                        )
+                    } else {
+                        // SOLO ESTA PARTE SCROLLEA
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(
+                                items = hospitales,
+                                key = { it.idHospital }
+                            ) { hospital ->
+                                HospitalCard(
+                                    hospital = hospital,
+                                    selected = selectedHospital?.idHospital == hospital.idHospital,
+                                    onClick = { onHospitalSelected(hospital) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -186,7 +193,7 @@ fun HospitalesContent(
 
         Button(
             onClick = onContinue,
-            enabled = selectedHospital != null,
+            enabled = selectedHospital != null && state is HospitalesState.Success,
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
@@ -290,9 +297,6 @@ fun HospitalCard(
 
             val direccionCorta = hospital.direccion.substringBefore(",")
 
-            println("DIRECCION COMPLETA: ${hospital.direccion}")
-            println("DIRECCION MOSTRADA: $direccionCorta")
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -319,7 +323,7 @@ fun HospitalCard(
                     )
                 }
 
-// Tiempo estimado arribo - derecha
+                // Tiempo estimado arribo - derecha
                 hospital.tiempoEstimadoArriboMejorRuta?.let { tiempo ->
 
                     Row(

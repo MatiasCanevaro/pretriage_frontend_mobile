@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.proyecto_final.triage.components.NextButton
 import com.proyecto_final.triage.components.SelectableOption
 import com.proyecto_final.triage.components.SelectableOptionsGrid
 import com.proyecto_final.triage.components.ScreenTitleBar
@@ -207,11 +208,15 @@ fun ProfileContent(
                     label = "Altura",
                     value = perfil.alturaDireccion ?: placeHolderText
                 )
-                ProfileField(
-                    icon =  Icons.Filled.LocationCity,
-                    label = "Piso",
-                    value = perfil.piso ?: placeHolderText
-                )
+
+                perfil.piso?.takeIf { it.isNotBlank() }?.let { piso ->
+                    ProfileField(
+                        icon = Icons.Filled.LocationCity,
+                        label = "Piso",
+                        value = piso
+                    )
+                }
+
                 ProfileField(
                     icon =  Icons.Filled.LocationCity,
                     label = "Código postal",
@@ -244,20 +249,7 @@ fun ProfileContent(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Button(
-                    onClick = { onEditProfile(perfil) },
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5BB8D4)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                ) {
-                    Text(
-                        text = "Editar",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White
-                    )
-                }
+                NextButton( onClick = { onEditProfile(perfil) }, text = "Editar")
 
                 Spacer(modifier = Modifier.height(24.dp))
             }
