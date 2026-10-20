@@ -3,9 +3,11 @@ package com.proyecto_final.triage.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -53,8 +55,10 @@ class HospitalesScreen(private val type: String, private val ubicacion: String) 
             )
         }
 
-        // ENVIO LA REQUEST PARA BUSCAR HOSPITALES — incluye orden
-        LaunchedEffect(ubicacion, type, ordenSeleccionado) {
+        // ENVIO LA REQUEST PARA BUSCAR HOSPITALES
+        // El cambio de orden NO va como key: cambiarOrden() ya hace la búsqueda.
+        // Si estuviera, cada cambio de orden dispararía dos requests.
+        LaunchedEffect(ubicacion, type) {
             buscar()
         }
 
@@ -218,38 +222,31 @@ private fun OrdenHospitalSelector(
             color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(8.dp))
+
+        // Un chip por cada opción del enum. Scrollea horizontal
+        // por si no entran todos en pantallas angostas.
         Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FilterChip(
-                selected = ordenSeleccionado == OrdenHospital.DISTANCIA,
-                onClick = { onOrdenChange(OrdenHospital.DISTANCIA) },
-                label = { Text(OrdenHospital.DISTANCIA.label) },
-                leadingIcon = if (ordenSeleccionado == OrdenHospital.DISTANCIA) {
-                    {
-                        Icon(
-                            imageVector = Icons.Filled.Done,
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                        )
-                    }
-                } else null
-            )
-            FilterChip(
-                selected = ordenSeleccionado == OrdenHospital.TIEMPO_ATENCION,
-                onClick = { onOrdenChange(OrdenHospital.TIEMPO_ATENCION) },
-                label = { Text(OrdenHospital.TIEMPO_ATENCION.label) },
-                leadingIcon = if (ordenSeleccionado == OrdenHospital.TIEMPO_ATENCION) {
-                    {
-                        Icon(
-                            imageVector = Icons.Filled.Done,
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                        )
-                    }
-                } else null
-            )
+            OrdenHospital.entries.forEach { orden ->
+                val seleccionado = ordenSeleccionado == orden
+                FilterChip(
+                    selected = seleccionado,
+                    onClick = { onOrdenChange(orden) },
+                    label = { Text(orden.label) },
+                    leadingIcon = if (seleccionado) {
+                        {
+                            Icon(
+                                imageVector = Icons.Filled.Done,
+                                contentDescription = null,
+                                modifier = Modifier.size(FilterChipDefaults.IconSize)
+                            )
+                        }
+                    } else null
+                )
+            }
         }
     }
 }
@@ -287,6 +284,32 @@ fun HospitalCard(
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
+
+            // Valoración (solo si el hospital tiene)
+            hospital.valoracionPromedio?.let { promedio ->
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        tint = Color(0xFFFFB300),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = formatearValoracion(promedio),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    hospital.cantidadValoraciones?.let { cantidad ->
+                        Text(
+                            text = " ($cantidad)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
 
             // Línea divisora
             HorizontalDivider(
@@ -458,7 +481,9 @@ data class Hospital(
     val tiempoEstimadoArriboMejorRuta: String?,
     val pacientesEnCola: Int = 0,
     val minutosEsperaEstimados: Long? = null,
-    val fechaHoraAtencionEstimada: String? = null
+    val fechaHoraAtencionEstimada: String? = null,
+    val valoracionPromedio: Double? = null,
+    val cantidadValoraciones: Int? = null
 )
 
 private fun HospitalCercanoDTO.toHospital(): Hospital {
@@ -471,11 +496,19 @@ private fun HospitalCercanoDTO.toHospital(): Hospital {
         tiempoEstimadoArriboMejorRuta = tiempoEstimadoArriboMejorRuta,
         pacientesEnCola = pacientesEnCola,
         minutosEsperaEstimados = minutosEsperaEstimados,
-        fechaHoraAtencionEstimada = fechaHoraAtencionEstimada
+        fechaHoraAtencionEstimada = fechaHoraAtencionEstimada,
+        valoracionPromedio = valoracionPromedio,
+        cantidadValoraciones = cantidadValoraciones
     )
 }
 
 // Helpers de formateo — reutilizan lógica existente en el proyecto
+
+// 4.36 -> "4,4"
+private fun formatearValoracion(valor: Double): String {
+    val redondeado = kotlin.math.round(valor * 10) / 10
+    return redondeado.toString().replace(".", ",")
+}
 
 private fun formatearTiempoArribo(tiempo: String): String {
     // Backend devuelve LocalTime como "HH:mm:ss" o "HH:mm"

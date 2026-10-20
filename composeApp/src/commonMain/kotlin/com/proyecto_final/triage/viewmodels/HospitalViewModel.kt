@@ -9,11 +9,13 @@ import com.proyecto_final.triage.network.HospitalCercanoDTO
 import com.proyecto_final.triage.network.elegirHospital
 import com.proyecto_final.triage.network.obtenerHospitalesCercanos
 import com.proyecto_final.triage.screens.Hospital
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 enum class OrdenHospital(val apiValue: String?, val label: String) {
     DISTANCIA(null, "Distancia"),
-    TIEMPO_ATENCION("tiempo-atencion", "Tiempo de atención")
+    TIEMPO_ATENCION("tiempo-atencion", "Tiempo de atención"),
+    MEJOR_VALORADOS("valoracion", "Mejor valorados")
 }
 
 class HospitalesViewModel : ViewModel() {
@@ -29,6 +31,10 @@ class HospitalesViewModel : ViewModel() {
     var ordenSeleccionado by mutableStateOf(OrdenHospital.DISTANCIA)
         private set
 
+    // Búsqueda en curso. Se cancela si arranca otra, para que una
+    // respuesta vieja (por ej. de otro orden) no pise a la nueva.
+    private var busquedaJob: Job? = null
+
     fun buscarHospitalesCercanos(
         latitud: Double,
         longitud: Double,
@@ -38,7 +44,8 @@ class HospitalesViewModel : ViewModel() {
     ) {
         ordenSeleccionado = orden
 
-        viewModelScope.launch {
+        busquedaJob?.cancel()
+        busquedaJob = viewModelScope.launch {
 
             state = HospitalesState.Loading
 
@@ -50,8 +57,12 @@ class HospitalesViewModel : ViewModel() {
                 ordenarPor = orden.apiValue
             )
 
-            resultado.onSuccess { hospitales -> state = HospitalesState.Success(hospitales) }
-                     .onFailure { state = HospitalesState.Error("No pudimos cargar los hospitales cercanos.")
+            resultado
+                .onSuccess { hospitales ->
+                    state = HospitalesState.Success(hospitales)
+                }
+                .onFailure {
+                    state = HospitalesState.Error("No pudimos cargar los hospitales cercanos.")
                 }
         }
     }
