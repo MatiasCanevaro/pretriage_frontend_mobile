@@ -199,3 +199,10 @@ La URL del backend sigue configurándose mediante `BACKEND_BASE_URL`; una direcc
 local de otro equipo no reemplaza esa configuración. El cambio de contraseña usa
 `POST /api/auth/cambio-contrasenia/actual` y conserva los avisos de bloqueo y
 validación del backend. El selector mantiene los tres órdenes con altura común.
+
+Verificado el 25 de octubre de 2026: `:composeApp:assembleDebug` y
+`:composeApp:testDebugUnitTest --tests com.proyecto_final.triage.audio.ControlEcoVozTest`
+finalizaron correctamente; pasaron las nueve pruebas de política de audio. Se usó
+un override local de `BACKEND_BASE_URL`, log temporal y detención del daemon.
+La compilación comprueba Android; la regresión acústica física indicada arriba y
+la compilación iOS requieren sus respectivos dispositivos/entornos.
