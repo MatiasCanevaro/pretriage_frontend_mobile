@@ -72,6 +72,10 @@ The initial `SplashScreen` requests `/`. An unauthenticated HTTP 401 response me
 the backend is reachable; the app can continue to sign-in. A connection timeout
 or refused connection triggers the generic “Algo salió mal” dialog.
 
+### Tiempo estimado de atención en vivo
+
+Mientras la entrada de la consulta permanece `EN_COLA`, la app abre una conexión SSE autenticada con `GET /api/atencion/tiempos/suscribirse/{consultaId}`. Recibe los eventos `tiempo-estimado` y `heartbeat`; al salir de la cola, el backend deja de enviar actualizaciones del tiempo estimado.
+
 ### Chat after cancelling a consultation
 
 Mobile clears its saved chat ID after a successful cancellation

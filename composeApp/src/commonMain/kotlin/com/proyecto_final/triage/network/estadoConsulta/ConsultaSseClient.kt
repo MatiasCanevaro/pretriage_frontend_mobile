@@ -33,7 +33,7 @@ object ConsultaSseClient {
         while (activo) {
             try {
                 httpClient.sse(
-                    urlString = "${AppConfig.baseUrl}/suscribirse/$consultaId"
+                    urlString = "${AppConfig.baseUrl}/api/atencion/tiempos/suscribirse/$consultaId"
                 ) {
                     incoming.collect { event ->
                         val data = event.data ?: return@collect
