@@ -3,6 +3,7 @@ package com.proyecto_final.triage.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.proyecto_final.triage.audio.crearAudioVoz
+import com.proyecto_final.triage.audio.ModoEntradaVoz
 import com.proyecto_final.triage.network.AUTOR_BOT
 import com.proyecto_final.triage.network.AUTOR_PACIENTE
 import com.proyecto_final.triage.network.AtencionEstimada
@@ -12,14 +13,17 @@ import com.proyecto_final.triage.network.MensajeVozCliente
 import com.proyecto_final.triage.network.conectarChatVoz
 import com.proyecto_final.triage.storage.ChatStorage
 import com.proyecto_final.triage.network.enviarMensaje
+import com.proyecto_final.triage.network.mensajeErrorEnvioChat
 import com.proyecto_final.triage.network.iniciarChat
 import com.proyecto_final.triage.network.obtenerChat
+import com.proyecto_final.triage.network.reintentarClasificacionChat
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -33,6 +37,7 @@ data class ChatUiState(
     val mensajes: List<ChatMensaje> = emptyList(),
     val mensajesNoEnviados: Set<String> = emptySet(),
     val finalizado: Boolean = false,
+    val estadoClasificacion: String = "NO_SOLICITADA",
     val borrador: String = "",
     val atencionEstimada: AtencionEstimada? = null,
     val error: String? = null,
@@ -40,6 +45,7 @@ data class ChatUiState(
     // Chat de voz
     val vozDisponible: Boolean = false,
     val estadoVoz: EstadoVoz = EstadoVoz.INACTIVA,
+    val modoEntradaVoz: ModoEntradaVoz = ModoEntradaVoz.POR_TURNOS,
     // Transcripción en curso (todavía no confirmada como burbuja)
     val transcripcionPaciente: String = "",
     val transcripcionBot: String = ""
@@ -50,6 +56,8 @@ enum class EstadoVoz {
     CONECTANDO,
     // Gemini listo: se envía el audio del micrófono
     ESCUCHANDO,
+    // Cierre solicitado: el micrófono está detenido y se espera cerrar el socket.
+    DETENIENDO,
     // Entrevista cerrada por Gemini: se espera la preclasificación
     PROCESANDO
 }
@@ -58,11 +66,32 @@ class ChatViewModel : ViewModel() {
 
     private val audio = crearAudioVoz()
 
-    private val _state = MutableStateFlow(ChatUiState(vozDisponible = audio.disponible))
+    private val _state = MutableStateFlow(ChatUiState(
+        vozDisponible = audio.disponible, modoEntradaVoz = audio.modoEntrada.value
+    ))
     val state: StateFlow<ChatUiState> = _state
 
     private var sesionVoz: Job? = null
     private var salidaVoz: Channel<MensajeVozCliente>? = null
+    // El audio nativo puede cambiar de modo al iniciar o al cambiar la salida.
+    // Colectar en viewModelScope evita escribir el estado UI desde hilos de audio.
+    private val observacionModoAudio = viewModelScope.launch {
+        audio.modoEntrada.collect { modo ->
+            _state.update { it.copy(modoEntradaVoz = modo) }
+        }
+    }
+
+    private val observacionErrorAudio = viewModelScope.launch {
+        audio.errorAudio.collect { mensaje ->
+            val estado = _state.value.estadoVoz
+            if (mensaje != null &&
+                (estado == EstadoVoz.CONECTANDO || estado == EstadoVoz.ESCUCHANDO)
+            ) {
+                detenerVoz()
+                _state.update { it.copy(error = mensaje) }
+            }
+        }
+    }
 
     fun iniciar() {
         if (_state.value.iniciando || _state.value.chatId != null) return
@@ -92,6 +121,7 @@ class ChatViewModel : ViewModel() {
                     chatId = chat.id ?: id,
                     mensajes = chat.mensajes,
                     finalizado = chat.finalizado,
+                    estadoClasificacion = chat.estadoClasificacion,
                     iniciando = false
                 )
             }
@@ -119,6 +149,7 @@ class ChatViewModel : ViewModel() {
                     chatId = chat.id,
                     mensajes = chat.mensajes,
                     finalizado = chat.finalizado,
+                    estadoClasificacion = chat.estadoClasificacion,
                     iniciando = false
                 )
             }
@@ -141,7 +172,7 @@ class ChatViewModel : ViewModel() {
     fun enviarBorrador() {
         val chatId = _state.value.chatId
         val contenido = _state.value.borrador
-        if (chatId == null || contenido.isBlank() || _state.value.enviando) return
+        if (chatId == null || contenido.isBlank() || _state.value.enviando || _state.value.finalizado) return
         if (_state.value.estadoVoz != EstadoVoz.INACTIVA) return
 
         // El mensaje del paciente se muestra al instante (actualización optimista),
@@ -181,7 +212,9 @@ class ChatViewModel : ViewModel() {
                         envioExitoso = true,
                         error = null,
                         mensajes = _state.value.mensajes + respuesta.respuesta,
-                        atencionEstimada = respuesta.atencionEstimada ?: _state.value.atencionEstimada
+                        atencionEstimada = respuesta.atencionEstimada ?: _state.value.atencionEstimada,
+                        finalizado = respuesta.atencionEstimada != null || _state.value.finalizado,
+                        estadoClasificacion = if (respuesta.atencionEstimada != null) "COMPLETADA" else _state.value.estadoClasificacion
                     )
                 }
                 .onFailure { error ->
@@ -189,11 +222,40 @@ class ChatViewModel : ViewModel() {
                     _state.value = _state.value.copy(
                         enviando = false,
                         envioExitoso = false,
-                        error = "No se pudo enviar el mensaje. Verificá tu conexión e intentá de nuevo.",
+                        error = mensajeErrorEnvioChat(error),
                         mensajesNoEnviados = _state.value.mensajesNoEnviados + contenido,
                         borrador = contenido
                     )
+                    obtenerChat(chatId).onSuccess { chat ->
+                        if (chat.finalizado) {
+                            _state.value = _state.value.copy(
+                                mensajes = chat.mensajes, finalizado = true,
+                                estadoClasificacion = chat.estadoClasificacion,
+                                mensajesNoEnviados = emptySet(), borrador = "",
+                                error = "Tus respuestas quedaron registradas. Podés reintentar sin volver a responder."
+                            )
+                        }
+                    }
                 }
+        }
+    }
+
+    fun reintentarProcesamiento() {
+        val actual = _state.value
+        val id = actual.chatId ?: return
+        if (actual.estadoClasificacion != "FALLIDA" || actual.enviando || actual.estadoVoz != EstadoVoz.INACTIVA) return
+        _state.value = actual.copy(enviando = true, error = null)
+        viewModelScope.launch {
+            reintentarClasificacionChat(id).onSuccess { respuesta ->
+                _state.value = _state.value.copy(
+                    mensajes = _state.value.mensajes + respuesta.respuesta,
+                    atencionEstimada = respuesta.atencionEstimada ?: _state.value.atencionEstimada,
+                    finalizado = true, estadoClasificacion = "COMPLETADA", enviando = false
+                )
+            }.onFailure {
+                _state.value = _state.value.copy(enviando = false,
+                    error = "No pudimos procesar tus respuestas. Quedaron guardadas; intentá nuevamente.")
+            }
         }
     }
 
@@ -224,9 +286,10 @@ class ChatViewModel : ViewModel() {
             envioExitoso = null
         )
 
-        // El micrófono corre en su propio hilo: si el socket se atrasa se descarta el audio más viejo.
+        // Cola breve: con captura de 20 ms limita a ~160 ms el audio pendiente.
+        // Si el socket se atrasa se descarta lo más viejo para no demorar una interrupción.
         val salida = Channel<MensajeVozCliente>(
-            capacity = 64,
+            capacity = 8,
             onBufferOverflow = BufferOverflow.DROP_OLDEST
         )
         salidaVoz = salida
@@ -240,7 +303,8 @@ class ChatViewModel : ViewModel() {
                 if (chat?.finalizado == true) {
                     _state.value = _state.value.copy(
                         mensajes = chat.mensajes,
-                        finalizado = true
+                        finalizado = true,
+                        estadoClasificacion = chat.estadoClasificacion
                     )
                     return@launch
                 }
@@ -269,8 +333,11 @@ class ChatViewModel : ViewModel() {
     fun detenerVoz() {
         val estado = _state.value.estadoVoz
         // Tras entrevista_finalizada el backend clasifica igual: se espera el resultado.
-        if (estado == EstadoVoz.INACTIVA || estado == EstadoVoz.PROCESANDO) return
+        if (estado == EstadoVoz.INACTIVA || estado == EstadoVoz.PROCESANDO ||
+            estado == EstadoVoz.DETENIENDO
+        ) return
 
+        _state.update { it.copy(estadoVoz = EstadoVoz.DETENIENDO) }
         audio.detenerGrabacion()
         audio.interrumpirReproduccion()
         salidaVoz?.trySend(MensajeVozCliente.Cerrar)
@@ -285,9 +352,15 @@ class ChatViewModel : ViewModel() {
 
     private fun procesarEventoVoz(evento: EventoVoz, salida: Channel<MensajeVozCliente>) {
         when (evento) {
-            is EventoVoz.Audio -> audio.reproducir(evento.pcm)
+            is EventoVoz.Audio -> {
+                if (_state.value.estadoVoz != EstadoVoz.DETENIENDO &&
+                    _state.value.estadoVoz != EstadoVoz.INACTIVA
+                ) audio.reproducir(evento.pcm)
+            }
 
             EventoVoz.Listo -> {
+                // Un listo tardío no vuelve a abrir el micrófono tras solicitar cierre.
+                if (_state.value.estadoVoz != EstadoVoz.CONECTANDO) return
                 val grabando = audio.iniciarGrabacion { pcm ->
                     salida.trySend(MensajeVozCliente.Audio(pcm))
                 }
@@ -335,7 +408,8 @@ class ChatViewModel : ViewModel() {
                 _state.value = _state.value.copy(
                     mensajes = _state.value.mensajes + listOfNotNull(evento.respuesta),
                     atencionEstimada = evento.atencionEstimada ?: _state.value.atencionEstimada,
-                    finalizado = true
+                    finalizado = true,
+                    estadoClasificacion = "COMPLETADA"
                 )
             }
 
@@ -383,7 +457,8 @@ class ChatViewModel : ViewModel() {
             if (chat.finalizado || chat.mensajes.size >= local.mensajes.size) {
                 _state.value = local.copy(
                     mensajes = chat.mensajes,
-                    finalizado = chat.finalizado || local.finalizado
+                    finalizado = chat.finalizado || local.finalizado,
+                    estadoClasificacion = chat.estadoClasificacion
                 )
             }
         }
@@ -391,6 +466,8 @@ class ChatViewModel : ViewModel() {
 
     /** Corta la voz y libera el audio. Llamar al salir de la pantalla. */
     fun liberarRecursos() {
+        observacionModoAudio.cancel()
+        observacionErrorAudio.cancel()
         sesionVoz?.cancel()
         sesionVoz = null
         audio.liberar()

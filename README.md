@@ -96,3 +96,95 @@ in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and r
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+
+
+### Mensajes del chat de voz
+
+La app muestra el registro de respuestas y la información de atención, sin anunciar preclasificaciones ni niveles de prioridad al paciente. El backend comparte esa regla con Gemini para texto, audio y cierre. Al activar voz con el saludo inicial ya visible, el backend pide una transición breve («Te escucho») y no envía otra transcripción del saludo. Las preguntas posteriores y las respuestas del paciente siguen llegando normalmente. Los avisos de atención urgente se mantienen.
+
+
+La entrevista terminada permanece cerrada si falla el procesamiento. `estadoClasificacion` permite distinguir el cierre de un resultado completado. El botón «Reintentar» usa `POST /api/chat/{id}/clasificacion` con las respuestas ya guardadas; no agrega un «ok» ni habilita nuevamente el micrófono o las preguntas.
+
+
+### Interrupciones de voz y protección contra eco (Android)
+
+La app intenta permitir que el paciente hable mientras responde el asistente. El
+modo efectivo se obtiene del audio nativo y se actualiza al iniciar o cambiar la
+salida: con una ruta de auriculares compatible o cancelación de eco habilitada,
+la pantalla indica «Podés interrumpir hablando». Se conserva la detección de voz de
+Gemini y, al recibir `interrumpido`, se corta inmediatamente la reproducción y se
+vacían tanto la cola local como el buffer nativo. Las escrituras previas quedan
+invalidadas para que no reaparezca audio del turno interrumpido.
+
+La cancelación de eco nativa depende del teléfono y de su ruta de audio; que se
+pueda habilitar no garantiza un resultado acústico perfecto. La selección de modo
+es automática y no expone un control manual: el modo por turnos se activa cuando
+faltan las condiciones mínimas para escuchar y reproducir a la vez. La pantalla
+sigue indicando el modo efectivo.
+
+En modo por turnos, se reemplaza por PCM silencioso la captura mientras hay audio
+pendiente en la cola o en `AudioTrack`. La escucha vuelve cuando el contador real
+`playbackHeadPosition` alcanza los frames encolados y pasan 300 ms de margen. Se
+comprueba antes y después de leer cada fragmento para descartar lecturas que cruzan
+ese límite. No se usa `turno_completo` para liberar el micrófono, porque puede
+quedar audio por reproducir. No se envía `fin_audio` por cada fragmento silenciado.
+La interfaz muestra el modo efectivo y conserva la opción de terminar la voz.
+Si otra aplicación o llamada toma el foco de audio durante la captura, la sesión
+se cierra y se informa el motivo; no queda mostrando «Te escucho» con el micrófono
+apagado. El cierre indica «Terminando la conversación de voz...». No se cancela
+el procesamiento de una entrevista ya terminada por un cambio de foco posterior.
+
+Verificación automática de la política: `./gradlew.bat :composeApp:testDebugUnitTest
+--tests com.proyecto_final.triage.audio.ControlEcoVozTest` (usar el procedimiento de
+log temporal y `--stop` de AGENTS.md). No requiere backend ni base de datos.
+
+Regresión física pendiente en un teléfono real:
+
+- Con parlante, dejar terminar tres respuestas sin hablar: no deben aparecer
+  transcripciones del bot como paciente ni interrupciones espontáneas.
+- En modo que permite interrumpir, hablar durante una respuesta: debe detenerse
+  el audio pendiente, transcribirse la voz del paciente y contestarse la nueva frase.
+- En una ruta sin soporte de interrupciones, comprobar la selección automática
+  del modo por turnos y su indicación en pantalla.
+- Repetir con volumen alto y con auriculares; conectar/desconectar auriculares
+  durante la sesión y verificar que el mensaje de la pantalla sigue el modo nativo.
+- Detener y reabrir voz, salir de la pantalla y repetir: sin audio pendiente,
+  micrófono retenido ni cambios persistentes de la ruta/modo de audio del sistema.
+
+
+### Errores al enviar por texto
+
+Un error HTTP del backend se distingue de una falla de transporte: un 5xx indica
+que el asistente no pudo responder, 401/403 requieren revisar la sesión, 404 indica
+un chat no encontrado y 429 pide esperar antes de reintentar. Las excepciones de
+transporte conservan el aviso de conexión. La app mantiene el borrador y el reintento
+manual, sin reenvíos automáticos de POST que puedan duplicar una respuesta.
+Si el backend ya cerró la entrevista, se conserva la recuperación por GET y el
+reintento de procesamiento sin volver a enviar respuestas. La ausencia de un mensaje
+fallido en la base no permite reconstruir su causa: revisar los logs del mismo horario.
+
+### Disposición de la UI y barras del sistema
+
+El contenedor de `App` dibuja el fondo con `Surface` y reserva `safeDrawing`
+antes de la navegación. Las pantallas quedan dentro del área disponible de las
+barras de estado, navegación y teclado. Los modificadores de insets descendientes
+consumen solo el espacio restante; no agregar márgenes fijos para compensar la
+barra de Android. Se conserva `imePadding()` del chat. Esta composición sigue el
+[manejo de insets de Compose](https://developer.android.com/develop/ui/compose/system/insets-ui).
+
+Las tarjetas del perfil distribuyen el ancho entre etiqueta y valor con separación.
+Con poco ancho o fuentes grandes pasan a etiqueta arriba y valor debajo, para que
+un correo largo no comprima la etiqueta en una columna de letras. No se recortan
+los datos para forzar una altura fija.
+
+Los filtros de hospitales comparten ancho y altura calculada a partir de su texto.
+Si el ancho disponible o la escala de fuente no permiten una fila cómoda, se
+apilan conservando la altura común. El espacio del indicador de selección se
+mantiene al cambiar de filtro para evitar saltos de tamaño.
+
+Regresión manual: revisar perfil con correo largo y elección de hospital a 320 dp
+y con fuente normal, 1.5 y 2 veces mayor; probar orientación horizontal. Con
+navegación Android por tres botones y por gestos, recorrer inicio de sesión,
+perfil, hospitales, consulta y chat, verificando que los últimos botones sean
+visibles y pulsables. Abrir/cerrar el teclado del chat y edición del perfil para
+comprobar que no se duplique el espacio inferior ni quede tapado el campo activo.

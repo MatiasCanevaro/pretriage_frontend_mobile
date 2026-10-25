@@ -1,6 +1,10 @@
 package com.proyecto_final.triage.audio
 
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.flow.StateFlow
+
+/** Capacidad efectiva de la sesión, no sólo preferencia del usuario. */
+enum class ModoEntradaVoz { INTERRUMPIBLE, POR_TURNOS }
 
 /**
  * Captura y reproducción de audio para el chat de voz.
@@ -10,6 +14,15 @@ import androidx.compose.runtime.Composable
 interface AudioVoz {
     /** false en plataformas sin soporte: la UI oculta el chat de voz. */
     val disponible: Boolean
+
+    /** Cambia al iniciar audio, cambiar de ruta o activar la protección contra eco. */
+    val modoEntrada: StateFlow<ModoEntradaVoz>
+
+    /** Fallo recuperable que requiere cerrar el canal de voz y mostrar el mensaje. */
+    val errorAudio: StateFlow<String?>
+
+    /** Fuerza conversación por turnos; false habilita dúplex sólo si la ruta lo permite. */
+    fun configurarModoPorTurnos(activar: Boolean)
 
     /** Empieza a grabar; [onFragmento] se llama desde un hilo de audio. Devuelve false si no pudo. */
     fun iniciarGrabacion(onFragmento: (ByteArray) -> Unit): Boolean

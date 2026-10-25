@@ -33,7 +33,8 @@ data class ChatResponse(
     val id: Long? = null,
     val mensajes: List<ChatMensaje> = emptyList(),
     val timestamp: String? = null,
-    val finalizado: Boolean = false
+    val finalizado: Boolean = false,
+    val estadoClasificacion: String = "NO_SOLICITADA"
 )
 
 @Serializable
@@ -62,6 +63,18 @@ data class RespuestaChatResponse(
 
 private val json = Json { ignoreUnknownKeys = true }
 
+/** HTTP failures reached the backend; they must not be labelled as connectivity errors. */
+internal class ErrorHttpChat(val estado: Int, mensaje: String) : Exception(mensaje)
+
+internal fun mensajeErrorEnvioChat(error: Throwable): String = when ((error as? ErrorHttpChat)?.estado) {
+    401, 403 -> "No pudimos acceder a tu chat. Volvé a iniciar sesión."
+    404 -> "No pudimos encontrar este chat. Volvé a abrirlo."
+    429 -> "Hay demasiadas solicitudes. Esperá unos segundos y volvé a intentar."
+    in 500..599 -> "El asistente no pudo responder en este intento. Tu mensaje sigue pendiente; podés reenviarlo."
+    null -> "No se pudo enviar el mensaje. Verificá tu conexión e intentá de nuevo."
+    else -> "No pudimos procesar el mensaje. Intentá nuevamente."
+}
+
 private suspend inline fun <reified T> procesarRespuesta(
     tag: String,
     response: HttpResponse,
@@ -77,7 +90,7 @@ private suspend inline fun <reified T> procesarRespuesta(
     val errorResponse = runCatching {
         json.decodeFromString<ErrorResponse>(bodyText)
     }.getOrNull()
-    return Result.failure(Exception(errorResponse?.error ?: mensajeError))
+    return Result.failure(ErrorHttpChat(response.status.value, errorResponse?.error ?: mensajeError))
 }
 
 suspend fun iniciarChat(): Result<ChatResponse> {
@@ -117,4 +130,14 @@ suspend fun enviarMensaje(id: Long, contenido: String): Result<RespuestaChatResp
         println("CHAT ENVIAR EXCEPTION: ${e.message}")
         Result.failure(e)
     }
+}
+
+/** Reprocess saved answers without reopening the interview or sending another message. */
+suspend fun reintentarClasificacionChat(id: Long): Result<RespuestaChatResponse> = try {
+    val response = httpClient.post("${AppConfig.baseUrl}/api/chat/$id/clasificacion") {
+        contentType(ContentType.Application.Json)
+    }
+    procesarRespuesta("CHAT REINTENTAR", response, "No pudimos procesar tus respuestas. Intentá nuevamente.")
+} catch (e: Exception) {
+    Result.failure(e)
 }

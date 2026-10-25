@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import com.proyecto_final.triage.audio.rememberSolicitudPermisoMicrofono
+import com.proyecto_final.triage.audio.ModoEntradaVoz
 import com.proyecto_final.triage.components.CommonHeader
 import com.proyecto_final.triage.components.ErrorBanner
 import com.proyecto_final.triage.components.InfoBanner
@@ -236,7 +237,7 @@ fun ChatContent(
                 item {
                     BurbujaDeMensaje(
                         ChatMensaje(
-                            contenido = "Analizando tu entrevista...",
+                            contenido = "Registrando tus respuestas...",
                             autor = AUTOR_BOT
                         ),
                         escribiendo = true
@@ -286,8 +287,19 @@ fun ChatContent(
         if (vozActiva) {
             PanelVoz(
                 estado = state.estadoVoz,
+                modoEntrada = state.modoEntradaVoz,
                 onDetener = viewModel::detenerVoz
             )
+            return@Column
+        }
+
+        if (state.finalizado) {
+            if (state.estadoClasificacion == "FALLIDA") {
+                Text("Tus respuestas están guardadas.")
+                Button(onClick = viewModel::reintentarProcesamiento, enabled = !state.enviando) {
+                    Text(if (state.enviando) "Procesando..." else "Reintentar")
+                }
+            }
             return@Column
         }
 
@@ -476,12 +488,16 @@ private fun BurbujaDeMensaje(
 @Composable
 private fun PanelVoz(
     estado: EstadoVoz,
+    modoEntrada: ModoEntradaVoz,
     onDetener: () -> Unit
 ) {
     val texto = when (estado) {
         EstadoVoz.CONECTANDO -> "Conectando con el asistente..."
-        EstadoVoz.ESCUCHANDO -> "Te escucho. Contale al asistente qué te pasa."
-        EstadoVoz.PROCESANDO -> "Entrevista terminada. Estamos calculando tu prioridad..."
+        EstadoVoz.ESCUCHANDO -> if (modoEntrada == ModoEntradaVoz.INTERRUMPIBLE)
+            "Podés interrumpir hablando."
+        else "Respondé cuando el asistente termine de hablar."
+        EstadoVoz.PROCESANDO -> "Entrevista terminada. Estamos registrando tus respuestas..."
+        EstadoVoz.DETENIENDO -> "Terminando la conversación de voz..."
         EstadoVoz.INACTIVA -> ""
     }
     val puedeDetener = estado == EstadoVoz.CONECTANDO || estado == EstadoVoz.ESCUCHANDO
@@ -493,45 +509,45 @@ private fun PanelVoz(
             .fillMaxWidth()
             .padding(bottom = 16.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (estado == EstadoVoz.ESCUCHANDO) {
-                Icon(
-                    imageVector = Icons.Filled.Mic,
-                    contentDescription = null,
-                    tint = Color(0xFF5BB8D4),
-                    modifier = Modifier.size(24.dp)
-                )
-            } else {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = texto,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f)
-            )
-            if (puedeDetener) {
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(
-                    onClick = onDetener,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(color = MaterialTheme.colorScheme.error, shape = CircleShape)
-                ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (estado == EstadoVoz.ESCUCHANDO) {
                     Icon(
-                        imageVector = Icons.Filled.Stop,
-                        contentDescription = "Terminar conversación por voz",
-                        tint = Color.White
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = null,
+                        tint = Color(0xFF5BB8D4),
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
                     )
                 }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = texto,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.weight(1f)
+                )
+                if (puedeDetener) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = onDetener,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(color = MaterialTheme.colorScheme.error, shape = CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Stop,
+                            contentDescription = "Terminar conversación por voz",
+                            tint = Color.White
+                        )
+                    }
+                }
             }
+
         }
     }
 }
@@ -556,7 +572,7 @@ private fun CardAtencionEstimada(atencion: AtencionEstimada) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Prioridad triage asignada",
+                    text = "Tu atención",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground
                 )

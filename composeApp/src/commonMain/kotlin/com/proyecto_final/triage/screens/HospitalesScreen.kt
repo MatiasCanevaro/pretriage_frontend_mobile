@@ -13,7 +13,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -204,47 +210,84 @@ private fun OrdenHospitalSelector(
     ordenSeleccionado: OrdenHospital,
     onOrdenChange: (OrdenHospital) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "Ordenar por",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FilterChip(
-                selected = ordenSeleccionado == OrdenHospital.DISTANCIA,
-                onClick = { onOrdenChange(OrdenHospital.DISTANCIA) },
-                label = { Text(OrdenHospital.DISTANCIA.label) },
-                leadingIcon = if (ordenSeleccionado == OrdenHospital.DISTANCIA) {
-                    {
-                        Icon(
-                            imageVector = Icons.Filled.Done,
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                        )
-                    }
-                } else null
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val sideBySide = maxWidth >= 320.dp * LocalDensity.current.fontScale
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "Ordenar por",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            FilterChip(
-                selected = ordenSeleccionado == OrdenHospital.TIEMPO_ATENCION,
-                onClick = { onOrdenChange(OrdenHospital.TIEMPO_ATENCION) },
-                label = { Text(OrdenHospital.TIEMPO_ATENCION.label) },
-                leadingIcon = if (ordenSeleccionado == OrdenHospital.TIEMPO_ATENCION) {
-                    {
-                        Icon(
-                            imageVector = Icons.Filled.Done,
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                        )
+            Layout(
+                modifier = Modifier.fillMaxWidth(),
+                content = {
+                    OrdenHospitalChip(
+                        selected = ordenSeleccionado == OrdenHospital.DISTANCIA,
+                        onClick = { onOrdenChange(OrdenHospital.DISTANCIA) },
+                        label = OrdenHospital.DISTANCIA.label
+                    )
+                    OrdenHospitalChip(
+                        selected = ordenSeleccionado == OrdenHospital.TIEMPO_ATENCION,
+                        onClick = { onOrdenChange(OrdenHospital.TIEMPO_ATENCION) },
+                        label = OrdenHospital.TIEMPO_ATENCION.label
+                    )
+                }
+            ) { measurables, constraints ->
+                val spacing = 8.dp.roundToPx()
+                val layoutWidth = constraints.maxWidth
+                val itemWidth = if (sideBySide) {
+                    (layoutWidth - spacing) / 2
+                } else {
+                    layoutWidth
+                }
+                val sharedHeight = maxOf(48.dp.roundToPx(), measurables.maxOf { it.maxIntrinsicHeight(itemWidth) })
+                val chipConstraints = Constraints.fixed(itemWidth, sharedHeight)
+                val chips = measurables.map { it.measure(chipConstraints) }
+                val chipHeight = chips.maxOf { it.height }
+                val layoutHeight = constraints.constrainHeight(
+                    if (sideBySide) chipHeight else chipHeight * 2 + spacing
+                )
+                layout(layoutWidth, layoutHeight) {
+                    if (sideBySide) {
+                        chips[0].placeRelative(0, 0)
+                        chips[1].placeRelative(itemWidth + spacing, 0)
+                    } else {
+                        chips[0].placeRelative(0, 0)
+                        chips[1].placeRelative(0, chipHeight + spacing)
                     }
-                } else null
-            )
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun OrdenHospitalChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        label = {
+            Text(
+                text = label,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Filled.Done,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(FilterChipDefaults.IconSize)
+                    .alpha(if (selected) 1f else 0f)
+            )
+        }
+    )
 }
 
 @Composable
