@@ -158,28 +158,53 @@ actual fun PlatformMap(
 
     /*
      * ============================================================
-     * UBICACIÓN DEL HOSPITAL
+     * POLYLINE
      * ============================================================
      */
 
-    var hospitalLocation by remember(
+    var routePoints by remember {
+        mutableStateOf<List<LatLng>>(emptyList())
+    }
+
+    LaunchedEffect(polylineCode) {
+
+        routePoints =
+            if (polylineCode.isNullOrBlank()) {
+                emptyList()
+            } else {
+                decodePolyline(polylineCode)
+            }
+    }
+
+    /*
+     * ============================================================
+     * UBICACIÓN DEL HOSPITAL (respaldo por geocoding)
+     * ============================================================
+     *
+     * Solo se usa cuando NO hay ruta. Geocodificar el texto de la
+     * dirección es impreciso (puede caer a varias cuadras), así que
+     * si hay ruta, el pin se pone donde termina la ruta.
+     */
+
+    var hospitalGeocodificado by remember(
         hospital?.direccion
     ) {
         mutableStateOf<LatLng?>(null)
     }
 
-    LaunchedEffect(hospital?.direccion) {
+    LaunchedEffect(hospital?.direccion, polylineCode) {
 
         val direccion = hospital?.direccion
 
-        if (direccion.isNullOrBlank()) {
+        // Con ruta no hace falta geocodificar
+        if (!polylineCode.isNullOrBlank() || direccion.isNullOrBlank()) {
 
-            hospitalLocation = null
+            hospitalGeocodificado = null
 
             return@LaunchedEffect
         }
 
-        hospitalLocation = withContext(
+        hospitalGeocodificado = withContext(
             Dispatchers.IO
         ) {
 
@@ -215,24 +240,13 @@ actual fun PlatformMap(
     }
 
     /*
-     * ============================================================
-     * POLYLINE
-     * ============================================================
+     * El pin del hospital va donde termina la ruta: es la misma
+     * fuente que la línea, así que siempre coinciden.
+     * Si no hay ruta, se usa la dirección geocodificada.
      */
 
-    var routePoints by remember {
-        mutableStateOf<List<LatLng>>(emptyList())
-    }
-
-    LaunchedEffect(polylineCode) {
-
-        routePoints =
-            if (polylineCode.isNullOrBlank()) {
-                emptyList()
-            } else {
-                decodePolyline(polylineCode)
-            }
-    }
+    val hospitalLocation: LatLng? =
+        routePoints.lastOrNull() ?: hospitalGeocodificado
 
     /*
      * ============================================================
@@ -297,6 +311,18 @@ actual fun PlatformMap(
         map.getStyle { style ->
 
             /*
+             * RUTA (primero, para que los marcadores queden encima)
+             */
+
+            if (routePoints.isNotEmpty()) {
+
+                dibujarRutaEnMapa(
+                    style = style,
+                    points = routePoints
+                )
+            }
+
+            /*
              * USUARIO
              */
 
@@ -327,18 +353,6 @@ actual fun PlatformMap(
                         "consulta-hospital-location-dot",
                     location = location,
                     color = Color(0xFFE57373)
-                )
-            }
-
-            /*
-             * RUTA
-             */
-
-            if (routePoints.isNotEmpty()) {
-
-                dibujarRutaEnMapa(
-                    style = style,
-                    points = routePoints
                 )
             }
         }
@@ -383,7 +397,7 @@ actual fun PlatformMap(
                     val bounds =
                         LatLngBounds.Builder()
                             .include(userLocation!!)
-                            .include(hospitalLocation!!)
+                            .include(hospitalLocation)
                             .build()
 
                     map.animateCamera(
@@ -398,7 +412,7 @@ actual fun PlatformMap(
 
                     map.animateCamera(
                         CameraUpdateFactory.newLatLngZoom(
-                            hospitalLocation!!,
+                            hospitalLocation,
                             15.0
                         )
                     )
@@ -574,33 +588,43 @@ private fun dibujarRutaEnMapa(
         )
     )
 
-    style.addLayer(
-        LineLayer(
-            layerId,
-            sourceId
-        ).withProperties(
+    val lineLayer = LineLayer(
+        layerId,
+        sourceId
+    ).withProperties(
 
-            PropertyFactory.lineColor(
-                ACCENT.toArgb()
-            ),
+        PropertyFactory.lineColor(
+            ACCENT.toArgb()
+        ),
 
-            PropertyFactory.lineWidth(
-                5f
-            ),
+        PropertyFactory.lineWidth(
+            5f
+        ),
 
-            PropertyFactory.lineOpacity(
-                0.9f
-            ),
+        PropertyFactory.lineOpacity(
+            0.9f
+        ),
 
-            PropertyFactory.lineCap(
-                "round"
-            ),
+        PropertyFactory.lineCap(
+            "round"
+        ),
 
-            PropertyFactory.lineJoin(
-                "round"
-            )
+        PropertyFactory.lineJoin(
+            "round"
         )
     )
+
+    // Si algún marcador ya existe, la línea va debajo de él
+    val marcadorExistente = listOf(
+        "consulta-user-location-dot",
+        "consulta-hospital-location-dot"
+    ).firstOrNull { style.getLayer(it) != null }
+
+    if (marcadorExistente != null) {
+        style.addLayerBelow(lineLayer, marcadorExistente)
+    } else {
+        style.addLayer(lineLayer)
+    }
 }
 
 

@@ -27,6 +27,7 @@ import com.proyecto_final.triage.theme.Spacing
 import com.proyecto_final.triage.viewmodels.EditProfileState
 import com.proyecto_final.triage.viewmodels.EditProfileViewModel
 import com.proyecto_final.triage.AppConstants
+import com.proyecto_final.triage.components.NextButton
 
 
 class EditProfileScreen(
@@ -340,29 +341,12 @@ fun EditProfileContent(
             )
         }
 
-        Button(
+        NextButton(
             onClick = { viewModel.guardar() },
             enabled = !state.isSaving,
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5BB8D4)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-        ) {
-            if (state.isSaving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Text(
-                    text = "Guardar cambios",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White
-                )
-            }
-        }
+            text = "Guardar cambios",
+            isLoading = state.isSaving
+        )
 
         Spacer(modifier = Modifier.height(Spacing.lg))
     }

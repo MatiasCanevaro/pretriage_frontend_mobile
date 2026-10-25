@@ -39,3 +39,9 @@ data class RegisterResponse(
 data class RefreshTokenRequest(
     val refreshToken: String
 )
+
+@Serializable
+data class CambiarContraseniaAutenticadaRequest(
+    val contraseniaActual: String,
+    val contraseniaNueva: String
+)

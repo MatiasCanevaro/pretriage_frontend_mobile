@@ -23,18 +23,16 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.proyecto_final.triage.components.NextButton
 import com.proyecto_final.triage.components.SelectableOption
 import com.proyecto_final.triage.components.SelectableOptionsGrid
 import com.proyecto_final.triage.components.ScreenTitleBar
 import com.proyecto_final.triage.network.PerfilResponse
-import com.proyecto_final.triage.storage.TokenStorage
-import com.proyecto_final.triage.storage.TokenStorageProvider
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.viewmodels.ProfileState
 import com.proyecto_final.triage.viewmodels.ProfileViewModel
 import org.jetbrains.compose.resources.painterResource
 import triage.composeapp.generated.resources.Res
-import triage.composeapp.generated.resources.credential
 import triage.composeapp.generated.resources.profile
 
 class ProfileScreen : Screen {
@@ -61,11 +59,7 @@ class ProfileScreen : Screen {
             },
             onHealthPlan = { navigator?.push(HealthPlanScreen()) },
             onMyStudies = { navigator?.push(MyStudiesScreen()) },
-            onLogOut = {
-                TokenStorageProvider.instance.clearTokens()
-                navigator?.popUntilRoot()
-                navigator?.replace(SignInScreen())
-            },
+            onSettings = { navigator?.push(ConfiguracionScreen()) },
             onBack = { navigator?.pop() }
         )
     }
@@ -101,7 +95,7 @@ fun ProfilePreview() {
             onEditProfile = { },
             onHealthPlan = { },
             onMyStudies = { },
-            onLogOut = { },
+            onSettings = { },
             onBack = { }
         )
     }
@@ -114,7 +108,7 @@ fun ProfileContent(
     onEditProfile: (PerfilResponse) -> Unit,
     onHealthPlan: () -> Unit,
     onMyStudies: () -> Unit,
-    onLogOut: () -> Unit,
+    onSettings: () -> Unit,
     onBack: () -> Unit
 ) {
     val opciones = listOf(
@@ -129,20 +123,17 @@ fun ProfileContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
-        // Header con título y botón cerrar sesión
+        // Header con título y acceso a configuración
         ScreenTitleBar(
             title = "Mi perfil",
             onBack = onBack
         ) {
-            OutlinedButton(
-                onClick = onLogOut,
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFE53935)
-                ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE53935))
-            ) {
-                Text("Cerrar sesión", color = Color(0xFFE53935))
+            IconButton(onClick = onSettings) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "Configuración",
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
             }
         }
 
@@ -208,11 +199,15 @@ fun ProfileContent(
                     label = "Altura",
                     value = perfil.alturaDireccion ?: placeHolderText
                 )
-                ProfileField(
-                    icon =  Icons.Filled.LocationCity,
-                    label = "Piso",
-                    value = perfil.piso ?: placeHolderText
-                )
+
+                perfil.piso?.takeIf { it.isNotBlank() }?.let { piso ->
+                    ProfileField(
+                        icon = Icons.Filled.LocationCity,
+                        label = "Piso",
+                        value = piso
+                    )
+                }
+
                 ProfileField(
                     icon =  Icons.Filled.LocationCity,
                     label = "Código postal",
@@ -233,32 +228,19 @@ fun ProfileContent(
                     icon = Icons.Default.FitnessCenter,
                     label = "Peso",
                     value = perfil.peso?.let {
-                        if (it % 1.0 == 0.0) "${it.toInt().toString()} kg" else "${it.toString()} kg" 
+                        if (it % 1.0 == 0.0) "${it.toInt()} kg" else "$it kg"
                     } ?: placeHolderText
                 )
-                
+
                 ProfileField(
                     icon = Icons.Default.Height,
                     label = "Altura",
-                    value = perfil.alturaPersona?.let { "${it} cm" } ?: placeHolderText
+                    value = perfil.alturaPersona?.let { "$it cm" } ?: placeHolderText
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Button(
-                    onClick = { onEditProfile(perfil) },
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5BB8D4)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                ) {
-                    Text(
-                        text = "Editar",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White
-                    )
-                }
+                NextButton(onClick = { onEditProfile(perfil) }, text = "Editar")
 
                 Spacer(modifier = Modifier.height(24.dp))
             }

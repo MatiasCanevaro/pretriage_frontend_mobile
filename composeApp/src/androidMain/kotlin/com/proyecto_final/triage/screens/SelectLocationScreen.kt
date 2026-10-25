@@ -1,11 +1,8 @@
 package com.proyecto_final.triage.screens
 
-import android.Manifest
-import android.annotation.SuppressLint
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.location.Geocoder
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,12 +19,19 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
-import com.google.android.gms.location.LocationServices
 import com.proyecto_final.triage.components.CommonHeader
+import com.proyecto_final.triage.components.ErrorMessage
+import com.proyecto_final.triage.components.ProgressBar
+import com.proyecto_final.triage.location.UbicacionState
+import com.proyecto_final.triage.location.rememberUbicacionActual
 import com.proyecto_final.triage.theme.Spacing
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
@@ -35,14 +39,6 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
-import android.location.Geocoder
-import androidx.compose.foundation.border
-import com.proyecto_final.triage.components.ProgressBar
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -73,7 +69,6 @@ class SelectLocationScreen(private val type: String) : Screen {
     }
 }
 
-@SuppressLint("MissingPermission")
 @Composable
 fun SelectLocationContent(
     type: String,
@@ -84,7 +79,6 @@ fun SelectLocationContent(
 
     var usarUbicacionActual by remember { mutableStateOf(true) }
     var direccion by remember { mutableStateOf("") }
-    var cargandoUbicacion by remember { mutableStateOf(true) }
 
     // Dirección legible de la ubicación actual (calle y altura), obtenida por geocoding inverso
     var direccionActualLegible by remember { mutableStateOf("") }
@@ -100,25 +94,20 @@ fun SelectLocationContent(
     var errorSugerencias by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
-    val fusedLocationClient = remember {
-        LocationServices.getFusedLocationProviderClient(context)
-    }
-    var userLocation by remember { mutableStateOf<LatLng?>(null) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                location?.let {
-                    userLocation = LatLng(it.latitude, it.longitude)
-                }
-                cargandoUbicacion = false
-            }
-        } else {
-            cargandoUbicacion = false
-        }
+    // UBICACIÓN ACTUAL: verifica permiso, lo pide si falta y obtiene la ubicación
+    val ubicacion = rememberUbicacionActual()
+    val cargandoUbicacion = ubicacion.state is UbicacionState.Cargando
+    val ubicacionActual: LatLng? = (ubicacion.state as? UbicacionState.Lista)?.let {
+        LatLng(it.latitud, it.longitud)
     }
+
+    // UBICACIÓN MANUAL: la que elige el usuario con "Ingresar otra dirección".
+    // Se guarda aparte para no pisar la ubicación actual.
+    var ubicacionManual by remember { mutableStateOf<LatLng?>(null) }
+
+    // La ubicación que se usa (mapa y botón Continuar) depende de la opción elegida
+    val userLocation: LatLng? = if (usarUbicacionActual) ubicacionActual else ubicacionManual
 
     // Geocoding: dirección -> lat/lng (usada por "Buscar dirección")
     suspend fun geocodificarDireccion(query: String): LatLng? = withContext(dispatcher) {
@@ -168,7 +157,7 @@ fun SelectLocationContent(
         if (!buscandoDireccion) return@LaunchedEffect
         val resultado = geocodificarDireccion(direccion)
         if (resultado != null) {
-            userLocation = resultado
+            ubicacionManual = resultado
             direccionEncontrada = direccion
         } else {
             errorBusquedaDireccion = "No pudimos encontrar esa dirección. Probá con calle, altura y localidad."
@@ -264,7 +253,8 @@ fun SelectLocationContent(
         errorSugerencias = null
         delay(400.milliseconds) // debounce: espera a que el usuario deje de tipear
         try {
-            sugerencias = buscarSugerencias(direccion, userLocation)
+            // Se prioriza cerca de la ubicación actual del usuario (si la tenemos)
+            sugerencias = buscarSugerencias(direccion, ubicacionActual)
             if (sugerencias.isEmpty()) {
                 errorSugerencias = "Sin resultados"
             }
@@ -276,32 +266,11 @@ fun SelectLocationContent(
         cargandoSugerencias = false
     }
 
-    LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    userLocation = LatLng(location.latitude, location.longitude)
-                }
-                cargandoUbicacion = false
-            }
-        } else {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-    }
-
-    // Cuando cambia la ubicación actual (y estamos usando "mi ubicación actual"),
-    // resolvemos la dirección legible para mostrarla en vez de "Ubicación detectada"
-    LaunchedEffect(userLocation, usarUbicacionActual) {
-        if (usarUbicacionActual) {
-            val location = userLocation
-            if (location != null) {
-                direccionActualLegible = direccionDesdeUbicacion(location) ?: ""
-            }
-        }
+    // Cuando llega la ubicación actual, resolvemos la dirección legible
+    // para mostrarla en vez de "Ubicación detectada"
+    LaunchedEffect(ubicacionActual) {
+        val location = ubicacionActual ?: return@LaunchedEffect
+        direccionActualLegible = direccionDesdeUbicacion(location) ?: ""
     }
 
     val mapView = remember {
@@ -396,239 +365,284 @@ fun SelectLocationContent(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-    ) {
-        CommonHeader(title = "2. Ingresá tu ubicación",
-                        subtitle = "Usaremos tu ubicación para mostrarte las mejores opciones",
-                        showLogo = true,
-                        onBack = { onBack() })
+    Box(modifier = Modifier.fillMaxSize()) {
 
-        ProgressBar(currentStep = 2, totalSteps = 3)
-
-        Spacer(modifier = Modifier.height(Spacing.lg))
-
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(16.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = 16.dp)
         ) {
-            Column {
-                Row(
+            // SIEMPRE VISIBLE
+            CommonHeader(
+                title = "2. Ingresá tu ubicación",
+                subtitle = "Usaremos tu ubicación para mostrarte las mejores opciones",
+                showLogo = true,
+                onBack = { onBack() }
+            )
+
+            ProgressBar(currentStep = 2, totalSteps = 3)
+
+            Spacer(modifier = Modifier.height(Spacing.lg))
+
+            // SOLO ESTA PARTE SCROLLEA
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { usarUbicacionActual = true }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(16.dp))
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.LocationOn,
-                        contentDescription = null,
-                        tint = if (usarUbicacionActual) Color(0xFF5BB8D4) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Usar mi ubicación actual",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        if (cargandoUbicacion) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color(0xFF5BB8D4)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Obteniendo ubicación...",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        } else {
-                            Text(
-                                text = direccionActualLegible.ifBlank { "Ubicación detectada" },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    RadioButton(
-                        selected = usarUbicacionActual,
-                        onClick = { usarUbicacionActual = true },
-                        colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF5BB8D4))
-                    )
-                }
-
-                if (usarUbicacionActual) {
-                    mapaUbicacion()
-                }
-
-                HorizontalDivider(
-                    color = Color(0xFFE0E0E0),
-                    thickness = 1.dp
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { usarUbicacionActual = false }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.LocationOn,
-                        contentDescription = null,
-                        tint = if (!usarUbicacionActual) Color(0xFF5BB8D4) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Ingresar otra dirección",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    RadioButton(
-                        selected = !usarUbicacionActual,
-                        onClick = { usarUbicacionActual = false },
-                        colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF5BB8D4))
-                    )
-                }
-
-                if (!usarUbicacionActual) {
-
-                    OutlinedTextField(
-                        value = direccion,
-                        onValueChange = {
-                            direccion = it
-                            // si el usuario edita el texto, invalidamos el resultado anterior
-                            errorBusquedaDireccion = null
-                            errorSugerencias = null
-                            direccionEncontrada = null
-                        },
-                        label = { Text("Dirección") },
-                        singleLine = true,
-                        isError = errorBusquedaDireccion != null,
-                        trailingIcon = {
-                            if (cargandoSugerencias || buscandoDireccion) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color(0xFF5BB8D4)
-                                )
-                            } else {
-                                IconButton(
-                                    onClick = { buscarDireccion(direccion) },
-                                    enabled = direccion.isNotBlank()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Search,
-                                        contentDescription = "Buscar dirección",
-                                        tint = if (direccion.isNotBlank())
-                                            Color(0xFF5BB8D4)
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 16.dp)
-                    )
-
-                    if (sugerencias.isNotEmpty()) {
-                        Column(
+                    Column {
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                    RoundedCornerShape(12.dp)
-                                )
+                                .clickable { usarUbicacionActual = true }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            sugerencias.forEach { sugerencia ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            direccion = sugerencia.etiqueta
-                                            userLocation = LatLng(sugerencia.lat, sugerencia.lon)
-                                            direccionEncontrada = sugerencia.etiqueta
-                                            errorBusquedaDireccion = null
-                                            sugerencias = emptyList()
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.LocationOn,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Filled.LocationOn,
+                                contentDescription = null,
+                                tint = if (usarUbicacionActual) Color(0xFF5BB8D4) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Usar mi ubicación actual",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                if (cargandoUbicacion) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = Color(0xFF5BB8D4)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Obteniendo ubicación...",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                } else {
                                     Text(
-                                        text = sugerencia.etiqueta,
-                                        style = MaterialTheme.typography.bodyMedium
+                                        text = if (ubicacionActual == null) "Ubicación no disponible"
+                                        else direccionActualLegible.ifBlank { "Ubicación detectada" },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
+                            RadioButton(
+                                selected = usarUbicacionActual,
+                                onClick = { usarUbicacionActual = true },
+                                colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF5BB8D4))
+                            )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    } else if (errorSugerencias != null && !cargandoSugerencias) {
-                        Text(
-                            text = errorSugerencias ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                        )
-                    }
 
-                    if (errorBusquedaDireccion != null) {
-                        Text(
-                            text = errorBusquedaDireccion ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                        )
-                    } else if (direccionEncontrada != null) {
-                        Text(
-                            text = "Dirección encontrada ✓",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF2E7D32),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                        )
-                    }
+                        if (usarUbicacionActual) {
+                            mapaUbicacion()
+                        }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-                    mapaUbicacion()
+                        HorizontalDivider(
+                            color = Color(0xFFE0E0E0),
+                            thickness = 1.dp
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { usarUbicacionActual = false }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.LocationOn,
+                                contentDescription = null,
+                                tint = if (!usarUbicacionActual) Color(0xFF5BB8D4) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Ingresar otra dirección",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            RadioButton(
+                                selected = !usarUbicacionActual,
+                                onClick = { usarUbicacionActual = false },
+                                colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF5BB8D4))
+                            )
+                        }
+
+                        if (!usarUbicacionActual) {
+
+                            OutlinedTextField(
+                                value = direccion,
+                                onValueChange = {
+                                    direccion = it
+                                    // si el usuario edita el texto, invalidamos el resultado anterior
+                                    errorBusquedaDireccion = null
+                                    errorSugerencias = null
+                                    direccionEncontrada = null
+                                },
+                                label = { Text("Dirección") },
+                                singleLine = true,
+                                isError = errorBusquedaDireccion != null,
+                                trailingIcon = {
+                                    if (cargandoSugerencias || buscandoDireccion) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = Color(0xFF5BB8D4)
+                                        )
+                                    } else {
+                                        IconButton(
+                                            onClick = { buscarDireccion(direccion) },
+                                            enabled = direccion.isNotBlank()
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Search,
+                                                contentDescription = "Buscar dirección",
+                                                tint = if (direccion.isNotBlank())
+                                                    Color(0xFF5BB8D4)
+                                                else
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 16.dp)
+                            )
+
+                            if (sugerencias.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.surfaceVariant,
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                ) {
+                                    sugerencias.forEach { sugerencia ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    direccion = sugerencia.etiqueta
+                                                    ubicacionManual = LatLng(sugerencia.lat, sugerencia.lon)
+                                                    direccionEncontrada = sugerencia.etiqueta
+                                                    errorBusquedaDireccion = null
+                                                    sugerencias = emptyList()
+                                                }
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.LocationOn,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = sugerencia.etiqueta,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            } else if (errorSugerencias != null && !cargandoSugerencias) {
+                                Text(
+                                    text = errorSugerencias ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                )
+                            }
+
+                            if (errorBusquedaDireccion != null) {
+                                Text(
+                                    text = errorBusquedaDireccion ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                )
+                            } else if (direccionEncontrada != null) {
+                                Text(
+                                    text = "Dirección encontrada ✓",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF2E7D32),
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            mapaUbicacion()
+                        }
+                    }
                 }
             }
+
+            // STICKY
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                enabled = if (usarUbicacionActual) {
+                    ubicacionActual != null
+                } else {
+                    direccionEncontrada != null && ubicacionManual != null
+                },
+                onClick = {
+                    userLocation?.let {
+                        onContinue(type, "${it.latitude},${it.longitude}")
+                    }
+                },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            ) {
+                Text("Continuar", color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        // OVERLAY DE ERROR — encima de toda la pantalla
+        when (val estado = ubicacion.state) {
 
-        Button(
-            enabled = if (usarUbicacionActual) {
-                userLocation != null
-            } else {
-                direccion.isNotBlank() && direccionEncontrada != null
-            },
-            onClick = {
-                onContinue(type, "${userLocation?.latitude},${userLocation?.longitude}")
-            },
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().height(54.dp),
-        ) {
-            Text("Continuar", color = Color.White)
+            // Permiso rechazado: Reintentar vuelve a pedirlo
+            // (o abre Ajustes si Android ya no permite mostrar el diálogo)
+            is UbicacionState.PermisoDenegado -> ErrorMessage(
+                errorText = if (estado.permanente)
+                    "Necesitamos tu ubicación para mostrarte las mejores opciones. Activá el permiso de ubicación desde los ajustes de la app."
+                else
+                    "Necesitamos tu ubicación para mostrarte las mejores opciones.",
+                buttonText = if (estado.permanente) "Abrir ajustes" else "Reintentar",
+                onClick = ubicacion.reintentar
+            )
+
+            // Hay permiso pero no se pudo obtener la ubicación (GPS apagado, emulador sin ubicación, etc.)
+            is UbicacionState.Error -> ErrorMessage(
+                errorText = estado.mensaje,
+                buttonText = "Reintentar",
+                onClick = ubicacion.reintentar
+            )
+
+            else -> Unit
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }

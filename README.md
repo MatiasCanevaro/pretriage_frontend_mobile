@@ -177,9 +177,10 @@ Con poco ancho o fuentes grandes pasan a etiqueta arriba y valor debajo, para qu
 un correo largo no comprima la etiqueta en una columna de letras. No se recortan
 los datos para forzar una altura fija.
 
-Los filtros de hospitales comparten ancho y altura calculada a partir de su texto.
-Si el ancho disponible o la escala de fuente no permiten una fila cómoda, se
-apilan conservando la altura común. El espacio del indicador de selección se
+Los filtros de hospitales (distancia, tiempo de atención y mejor valorados)
+comparten ancho y altura calculada a partir de su texto. La grilla adapta la
+cantidad de columnas al ancho disponible y la escala de fuente; en pantallas
+angostas se apilan conservando la altura común. El espacio del indicador de selección se
 mantiene al cambiar de filtro para evitar saltos de tamaño.
 
 Regresión manual: revisar perfil con correo largo y elección de hospital a 320 dp
@@ -188,3 +189,13 @@ navegación Android por tres botones y por gestos, recorrer inicio de sesión,
 perfil, hospitales, consulta y chat, verificando que los últimos botones sean
 visibles y pulsables. Abrir/cerrar el teclado del chat y edición del perfil para
 comprobar que no se duplique el espacio inferior ni quede tapado el campo activo.
+
+
+### Integración con desarrollo (25 de octubre de 2026)
+
+La rama de chat de voz incorpora el cambio de contraseña autenticado, el orden
+«Mejor valorados» y los ajustes de ubicación/carga de hospitales de `desarrollo`.
+La URL del backend sigue configurándose mediante `BACKEND_BASE_URL`; una dirección
+local de otro equipo no reemplaza esa configuración. El cambio de contraseña usa
+`POST /api/auth/cambio-contrasenia/actual` y conserva los avisos de bloqueo y
+validación del backend. El selector mantiene los tres órdenes con altura común.

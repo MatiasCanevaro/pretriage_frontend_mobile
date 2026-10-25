@@ -14,7 +14,9 @@ data class HospitalCercanoDTO(
     val pacientesEnCola: Int = 0,
     val disponible: Boolean = true,
     val minutosEsperaEstimados: Long? = null,
-    val fechaHoraAtencionEstimada: String? = null
+    val fechaHoraAtencionEstimada: String? = null,
+    val valoracionPromedio: Double? = null,
+    val cantidadValoraciones: Int? = null
 )
 
 @Serializable
