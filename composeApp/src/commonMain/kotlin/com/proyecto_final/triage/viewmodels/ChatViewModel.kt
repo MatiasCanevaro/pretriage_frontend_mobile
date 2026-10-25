@@ -37,7 +37,7 @@ data class ChatUiState(
     val mensajes: List<ChatMensaje> = emptyList(),
     val mensajesNoEnviados: Set<String> = emptySet(),
     val finalizado: Boolean = false,
-    val estadoClasificacion: String = "NO_SOLICITADA",
+    val estadoClasificacion: String? = "NO_SOLICITADA",
     val borrador: String = "",
     val atencionEstimada: AtencionEstimada? = null,
     val error: String? = null,
@@ -229,10 +229,13 @@ class ChatViewModel : ViewModel() {
                     obtenerChat(chatId).onSuccess { chat ->
                         if (chat.finalizado) {
                             _state.value = _state.value.copy(
-                                mensajes = chat.mensajes, finalizado = true,
+                                mensajes = chat.mensajes,
+                                finalizado = true,
                                 estadoClasificacion = chat.estadoClasificacion,
-                                mensajesNoEnviados = emptySet(), borrador = "",
-                                error = "Tus respuestas quedaron registradas. Podés reintentar sin volver a responder."
+                                mensajesNoEnviados = emptySet(),
+                                borrador = "",
+                                envioExitoso = null,
+                                error = null
                             )
                         }
                     }
@@ -244,20 +247,32 @@ class ChatViewModel : ViewModel() {
         val actual = _state.value
         val id = actual.chatId ?: return
         if (actual.estadoClasificacion != "FALLIDA" || actual.enviando || actual.estadoVoz != EstadoVoz.INACTIVA) return
-        _state.value = actual.copy(enviando = true, error = null)
+        _state.value = actual.copy(enviando = true, error = null, envioExitoso = null)
         viewModelScope.launch {
             reintentarClasificacionChat(id).onSuccess { respuesta ->
                 _state.value = _state.value.copy(
-                    mensajes = _state.value.mensajes + respuesta.respuesta,
+                    mensajes = agregarRespuestaSiNueva(_state.value.mensajes, respuesta.respuesta),
                     atencionEstimada = respuesta.atencionEstimada ?: _state.value.atencionEstimada,
-                    finalizado = true, estadoClasificacion = "COMPLETADA", enviando = false
+                    finalizado = true,
+                    estadoClasificacion = "COMPLETADA",
+                    enviando = false,
+                    error = null,
+                    envioExitoso = null
                 )
             }.onFailure {
-                _state.value = _state.value.copy(enviando = false,
-                    error = "No pudimos procesar tus respuestas. Quedaron guardadas; intentá nuevamente.")
+                _state.value = _state.value.copy(
+                    enviando = false,
+                    error = "No pudimos procesar tus respuestas. Quedaron guardadas; intentá nuevamente.",
+                    envioExitoso = null
+                )
             }
         }
     }
+
+    private fun agregarRespuestaSiNueva(
+        mensajes: List<ChatMensaje>,
+        respuesta: ChatMensaje
+    ): List<ChatMensaje> = if (mensajes.lastOrNull() == respuesta) mensajes else mensajes + respuesta
 
     fun limpiarError() {
         _state.value = _state.value.copy(error = null)

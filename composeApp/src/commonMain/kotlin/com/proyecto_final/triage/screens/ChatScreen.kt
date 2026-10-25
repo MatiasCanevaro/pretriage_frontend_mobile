@@ -39,6 +39,8 @@ import com.proyecto_final.triage.network.ChatMensaje
 import com.proyecto_final.triage.network.esAutorBot
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.viewmodels.ChatViewModel
+import com.proyecto_final.triage.viewmodels.ChatClassificationPresentation
+import com.proyecto_final.triage.viewmodels.presentacionClasificacionChat
 import com.proyecto_final.triage.viewmodels.EstadoVoz
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -81,6 +83,10 @@ fun ChatContent(
     var mostrarExito by remember { mutableStateOf(false) }
     val listaState = rememberLazyListState()
     val vozActiva = state.estadoVoz != EstadoVoz.INACTIVA
+    val presentacionClasificacion = presentacionClasificacionChat(
+        finalizado = state.finalizado,
+        estadoClasificacion = state.estadoClasificacion
+    )
 
     val solicitarMicrofono = rememberSolicitudPermisoMicrofono { concedido ->
         if (concedido) viewModel.iniciarVoz() else viewModel.permisoMicrofonoDenegado()
@@ -233,7 +239,9 @@ fun ChatContent(
                 }
             }
 
-            if (state.estadoVoz == EstadoVoz.PROCESANDO) {
+            if (state.estadoVoz == EstadoVoz.PROCESANDO &&
+                presentacionClasificacion == ChatClassificationPresentation.NO_SOLICITADA
+            ) {
                 item {
                     BurbujaDeMensaje(
                         ChatMensaje(
@@ -251,17 +259,40 @@ fun ChatContent(
             CardAtencionEstimada(atencion)
         }
 
-        // Chat finalizado
-        if (state.finalizado) {
-            InfoBanner(
-                text = "Triage finalizado. Tu consulta fue derivada al equipo médico.",
-                icon = Icons.Filled.Check
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+        // Cerrar la entrevista no significa que el triage haya terminado correctamente.
+        when (presentacionClasificacion) {
+            ChatClassificationPresentation.COMPLETADA -> {
+                InfoBanner(
+                    text = "Entrevista completada. Podés consultar el estado de tu atención.",
+                    icon = Icons.Filled.Check
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            ChatClassificationPresentation.PROCESANDO -> {
+                InfoBanner(text = "Tus respuestas están guardadas. Estamos procesándolas...")
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            ChatClassificationPresentation.FALLIDA -> {
+                val textoAviso = when {
+                    state.enviando -> "Tus respuestas están guardadas. Estamos reintentando el procesamiento..."
+                    state.error != null -> "No pudimos procesar tus respuestas. Quedaron guardadas; podés intentarlo nuevamente."
+                    else -> "Tus respuestas quedaron registradas. No hace falta responder de nuevo."
+                }
+                InfoBanner(text = textoAviso)
+                Button(onClick = viewModel::reintentarProcesamiento, enabled = !state.enviando) {
+                    Text(if (state.enviando) "Procesando..." else "Reintentar procesamiento")
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            ChatClassificationPresentation.CERRADA_SIN_RESULTADO -> {
+                InfoBanner(text = "La entrevista terminó. Estamos verificando el estado de tus respuestas...")
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            ChatClassificationPresentation.NO_SOLICITADA -> Unit
         }
 
-        // Error al enviar (texto conservado en el campo)
-        if (state.error != null && state.chatId != null) {
+        // Error al enviar (texto conservado en el campo). Once closed, classification status is authoritative.
+        if (state.error != null && state.chatId != null && !state.finalizado) {
             Text(
                 text = state.error ?: "Error",
                 color = MaterialTheme.colorScheme.error,
@@ -272,7 +303,7 @@ fun ChatContent(
             )
         }
 
-        if (mostrarExito) {
+        if (mostrarExito && !state.finalizado && state.error == null) {
             Text(
                 text = "Mensaje enviado",
                 color = Color(0xFF2E7D32),
@@ -293,15 +324,7 @@ fun ChatContent(
             return@Column
         }
 
-        if (state.finalizado) {
-            if (state.estadoClasificacion == "FALLIDA") {
-                Text("Tus respuestas están guardadas.")
-                Button(onClick = viewModel::reintentarProcesamiento, enabled = !state.enviando) {
-                    Text(if (state.enviando) "Procesando..." else "Reintentar")
-                }
-            }
-            return@Column
-        }
+        if (state.finalizado) return@Column
 
         // Entrada de mensaje
         Row(

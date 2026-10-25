@@ -34,7 +34,8 @@ data class ChatResponse(
     val mensajes: List<ChatMensaje> = emptyList(),
     val timestamp: String? = null,
     val finalizado: Boolean = false,
-    val estadoClasificacion: String = "NO_SOLICITADA"
+    // Null means a legacy server omitted the classification status; finalizado alone is not triage success.
+    val estadoClasificacion: String? = null
 )
 
 @Serializable
