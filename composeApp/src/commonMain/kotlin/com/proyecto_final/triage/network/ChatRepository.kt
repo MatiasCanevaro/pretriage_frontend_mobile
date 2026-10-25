@@ -18,6 +18,7 @@ import kotlinx.serialization.json.Json
 
 const val AUTOR_BOT = "BOT"
 const val AUTOR_PACIENTE = "PACIENTE"
+const val ORIGEN_CIERRE_SIN_DATOS = "CIERRE_SIN_DATOS"
 
 fun esAutorBot(autor: String?): Boolean = autor == AUTOR_BOT
 
@@ -59,7 +60,8 @@ data class AtencionEstimada(
 @Serializable
 data class RespuestaChatResponse(
     val respuesta: ChatMensaje,
-    val atencionEstimada: AtencionEstimada? = null
+    val atencionEstimada: AtencionEstimada? = null,
+    val origenRespuesta: String? = null
 )
 
 private val json = Json { ignoreUnknownKeys = true }

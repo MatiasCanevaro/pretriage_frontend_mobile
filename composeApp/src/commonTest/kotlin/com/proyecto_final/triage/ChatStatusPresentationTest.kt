@@ -15,6 +15,12 @@ class ChatStatusPresentationTest {
     }
 
     @Test
+    fun cierreAdministrativoSinDatosPermaneceComoNoSolicitada() {
+        assertEquals(ChatClassificationPresentation.NO_SOLICITADA,
+            presentacionClasificacionChat(true, "NO_SOLICITADA"))
+    }
+
+    @Test
     fun unaRespuestaLegacySinEstadoNoTomaCierreComoExito() {
         assertEquals(ChatClassificationPresentation.CERRADA_SIN_RESULTADO, presentacionClasificacionChat(true, null))
     }

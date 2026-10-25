@@ -16,6 +16,7 @@ import com.proyecto_final.triage.network.enviarMensaje
 import com.proyecto_final.triage.network.mensajeErrorEnvioChat
 import com.proyecto_final.triage.network.iniciarChat
 import com.proyecto_final.triage.network.obtenerChat
+import com.proyecto_final.triage.network.ORIGEN_CIERRE_SIN_DATOS
 import com.proyecto_final.triage.network.reintentarClasificacionChat
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -207,15 +208,19 @@ class ChatViewModel : ViewModel() {
             enviarMensaje(chatId, contenido)
                 .onSuccess { respuesta ->
                     println("CHAT RESPUESTA: ${respuesta.respuesta}")
-                    _state.value = _state.value.copy(
-                        enviando = false,
-                        envioExitoso = true,
-                        error = null,
-                        mensajes = _state.value.mensajes + respuesta.respuesta,
-                        atencionEstimada = respuesta.atencionEstimada ?: _state.value.atencionEstimada,
-                        finalizado = respuesta.atencionEstimada != null || _state.value.finalizado,
-                        estadoClasificacion = if (respuesta.atencionEstimada != null) "COMPLETADA" else _state.value.estadoClasificacion
-                    )
+                    if (respuesta.origenRespuesta == ORIGEN_CIERRE_SIN_DATOS) {
+                        sincronizarCierreSinDatos(chatId, respuesta.respuesta)
+                    } else {
+                        _state.value = _state.value.copy(
+                            enviando = false,
+                            envioExitoso = true,
+                            error = null,
+                            mensajes = _state.value.mensajes + respuesta.respuesta,
+                            atencionEstimada = respuesta.atencionEstimada ?: _state.value.atencionEstimada,
+                            finalizado = respuesta.atencionEstimada != null || _state.value.finalizado,
+                            estadoClasificacion = if (respuesta.atencionEstimada != null) "COMPLETADA" else _state.value.estadoClasificacion
+                        )
+                    }
                 }
                 .onFailure { error ->
                     println("CHAT ERROR AL ENVIAR: ${error.message}")
@@ -240,6 +245,36 @@ class ChatViewModel : ViewModel() {
                         }
                     }
                 }
+        }
+    }
+
+    /** A no-data closure ends the interview without representing a successful classification. */
+    private suspend fun sincronizarCierreSinDatos(chatId: Long, respuesta: ChatMensaje) {
+        val actual = _state.value
+        _state.value = actual.copy(
+            mensajes = agregarRespuestaSiNueva(actual.mensajes, respuesta),
+            mensajesNoEnviados = emptySet(),
+            borrador = "",
+            atencionEstimada = null,
+            finalizado = true,
+            estadoClasificacion = "NO_SOLICITADA",
+            enviando = false,
+            error = null,
+            envioExitoso = null
+        )
+        obtenerChat(chatId).onSuccess { chat ->
+            if (chat.finalizado) {
+                _state.value = _state.value.copy(
+                    mensajes = chat.mensajes,
+                    atencionEstimada = null,
+                    finalizado = true,
+                    estadoClasificacion = "NO_SOLICITADA",
+                    mensajesNoEnviados = emptySet(),
+                    borrador = "",
+                    error = null,
+                    envioExitoso = null
+                )
+            }
         }
     }
 
@@ -311,6 +346,7 @@ class ChatViewModel : ViewModel() {
 
         sesionVoz = viewModelScope.launch {
             var triageRecibido = false
+            var cierreSinDatosRecibido = false
             try {
                 // Consulta previa por HTTP: renueva el token si venció (el handshake no reintenta)
                 // y evita abrir la voz sobre un chat ya finalizado (el backend respondería 409).
@@ -325,7 +361,10 @@ class ChatViewModel : ViewModel() {
                 }
 
                 val resultado = conectarChatVoz(chatId, salida) { evento ->
-                    if (evento is EventoVoz.TriageFinalizado) triageRecibido = true
+                    if (evento is EventoVoz.TriageFinalizado) {
+                        triageRecibido = true
+                        cierreSinDatosRecibido = evento.origenRespuesta == ORIGEN_CIERRE_SIN_DATOS
+                    }
                     procesarEventoVoz(evento, salida)
                 }
                 resultado.onFailure {
@@ -340,7 +379,7 @@ class ChatViewModel : ViewModel() {
                 if (salidaVoz === salida) salidaVoz = null
                 _state.value = _state.value.copy(estadoVoz = EstadoVoz.INACTIVA)
             }
-            sincronizarChatTrasVoz(chatId, triageRecibido)
+            sincronizarChatTrasVoz(chatId, triageRecibido, cierreSinDatosRecibido)
         }
     }
 
@@ -420,12 +459,24 @@ class ChatViewModel : ViewModel() {
 
             is EventoVoz.TriageFinalizado -> {
                 confirmarTranscripciones()
-                _state.value = _state.value.copy(
-                    mensajes = _state.value.mensajes + listOfNotNull(evento.respuesta),
-                    atencionEstimada = evento.atencionEstimada ?: _state.value.atencionEstimada,
-                    finalizado = true,
-                    estadoClasificacion = "COMPLETADA"
-                )
+                if (evento.origenRespuesta == ORIGEN_CIERRE_SIN_DATOS) {
+                    _state.value = _state.value.copy(
+                        mensajes = evento.respuesta?.let { agregarRespuestaSiNueva(_state.value.mensajes, it) }
+                            ?: _state.value.mensajes,
+                        atencionEstimada = null,
+                        finalizado = true,
+                        estadoClasificacion = "NO_SOLICITADA",
+                        error = null,
+                        envioExitoso = null
+                    )
+                } else {
+                    _state.value = _state.value.copy(
+                        mensajes = _state.value.mensajes + listOfNotNull(evento.respuesta),
+                        atencionEstimada = evento.atencionEstimada ?: _state.value.atencionEstimada,
+                        finalizado = true,
+                        estadoClasificacion = "COMPLETADA"
+                    )
+                }
             }
 
             EventoVoz.SesionPorExpirar -> _state.value = _state.value.copy(
@@ -465,17 +516,30 @@ class ChatViewModel : ViewModel() {
     // Las burbujas de voz son transcripciones locales: al terminar se reemplazan por lo que
     // persistió el backend. Sin triage el guardado es asíncrono, por eso se espera un poco y
     // solo se reemplaza si el backend no tiene menos mensajes que los que se muestran.
-    private suspend fun sincronizarChatTrasVoz(chatId: Long, triageRecibido: Boolean) {
+    private suspend fun sincronizarChatTrasVoz(
+        chatId: Long,
+        triageRecibido: Boolean,
+        cierreSinDatosRecibido: Boolean
+    ) {
         if (!triageRecibido) delay(1_500)
         obtenerChat(chatId).onSuccess { chat ->
             val local = _state.value
             if (chat.finalizado || chat.mensajes.size >= local.mensajes.size) {
                 _state.value = local.copy(
                     mensajes = chat.mensajes,
+                    atencionEstimada = if (cierreSinDatosRecibido) null else local.atencionEstimada,
                     finalizado = chat.finalizado || local.finalizado,
-                    estadoClasificacion = chat.estadoClasificacion
+                    estadoClasificacion = if (cierreSinDatosRecibido) "NO_SOLICITADA"
+                        else chat.estadoClasificacion
                 )
             }
+        }
+        if (cierreSinDatosRecibido && !_state.value.finalizado) {
+            _state.value = _state.value.copy(
+                finalizado = true,
+                estadoClasificacion = "NO_SOLICITADA",
+                atencionEstimada = null
+            )
         }
     }
 

@@ -30,7 +30,8 @@ sealed interface EventoVoz {
     data object EntrevistaFinalizada : EventoVoz
     data class TriageFinalizado(
         val respuesta: ChatMensaje?,
-        val atencionEstimada: AtencionEstimada?
+        val atencionEstimada: AtencionEstimada?,
+        val origenRespuesta: String? = null
     ) : EventoVoz
     data class Error(val mensaje: String) : EventoVoz
     data object Fin : EventoVoz
@@ -42,7 +43,8 @@ private data class EventoVozDTO(
     val texto: String? = null,
     val mensaje: String? = null,
     val respuesta: ChatMensaje? = null,
-    val atencionEstimada: AtencionEstimada? = null
+    val atencionEstimada: AtencionEstimada? = null,
+    val origenRespuesta: String? = null
 )
 
 private val jsonVoz = Json { ignoreUnknownKeys = true }
@@ -57,7 +59,7 @@ private fun parsearEvento(texto: String): EventoVoz? {
         "turno_completo" -> EventoVoz.TurnoCompleto
         "sesion_por_expirar" -> EventoVoz.SesionPorExpirar
         "entrevista_finalizada" -> EventoVoz.EntrevistaFinalizada
-        "triage_finalizado" -> EventoVoz.TriageFinalizado(evento.respuesta, evento.atencionEstimada)
+        "triage_finalizado" -> EventoVoz.TriageFinalizado(evento.respuesta, evento.atencionEstimada, evento.origenRespuesta)
         "error" -> EventoVoz.Error(evento.mensaje ?: "Error en el chat de voz")
         "fin" -> EventoVoz.Fin
         else -> null
