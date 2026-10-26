@@ -270,6 +270,15 @@ fun ChatContent(
             }
             ChatClassificationPresentation.PROCESANDO -> {
                 InfoBanner(text = "Tus respuestas están guardadas. Estamos procesándolas...")
+                if (state.error != null) {
+                    Text(state.error ?: "Error", color = MaterialTheme.colorScheme.error)
+                }
+                Button(
+                    onClick = viewModel::actualizarConversacion,
+                    enabled = !state.verificandoRespuesta
+                ) {
+                    Text(if (state.verificandoRespuesta) "Consultando..." else "Actualizar conversación")
+                }
                 Spacer(modifier = Modifier.height(12.dp))
             }
             ChatClassificationPresentation.FALLIDA -> {
@@ -291,6 +300,16 @@ fun ChatContent(
             ChatClassificationPresentation.NO_SOLICITADA -> Unit
         }
 
+        if (state.respuestaPendiente && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)) {
+            InfoBanner(text = "El mensaje quedó guardado. Estamos esperando la respuesta del asistente.")
+            Button(
+                onClick = viewModel::actualizarConversacion,
+                enabled = !state.verificandoRespuesta
+            ) {
+                Text(if (state.verificandoRespuesta) "Consultando..." else "Actualizar conversación")
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
         // Error al enviar (texto conservado en el campo). Once closed, classification status is authoritative.
         if (state.error != null && state.chatId != null && !state.finalizado) {
             Text(
@@ -336,7 +355,7 @@ fun ChatContent(
             OutlinedTextField(
                 value = state.borrador,
                 onValueChange = viewModel::actualizarBorrador,
-                enabled = state.chatId != null && !state.finalizado && !state.enviando,
+                enabled = state.chatId != null && !state.finalizado && !state.enviando && !state.respuestaPendiente && !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true),
                 placeholder = {
                     Text("Escribí tus síntomas...")
                 },
@@ -351,7 +370,9 @@ fun ChatContent(
             val puedeHablar = state.vozDisponible &&
                 state.chatId != null &&
                 !state.finalizado &&
-                !state.enviando
+                !state.enviando &&
+                !state.respuestaPendiente &&
+                !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)
 
             // Micrófono: solo si todavía no escribió nada, para no competir con el botón de enviar.
             if (state.vozDisponible && state.borrador.isBlank()) {
@@ -377,7 +398,9 @@ fun ChatContent(
             val puedeEnviar = state.borrador.isNotBlank() &&
                 state.chatId != null &&
                 !state.finalizado &&
-                !state.enviando
+                !state.enviando &&
+                !state.respuestaPendiente &&
+                !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)
 
             if (state.enviando) {
                 CircularProgressIndicator(

@@ -8,6 +8,10 @@ import com.proyecto_final.triage.network.AUTOR_BOT
 import com.proyecto_final.triage.network.AUTOR_PACIENTE
 import com.proyecto_final.triage.network.AtencionEstimada
 import com.proyecto_final.triage.network.ChatMensaje
+import com.proyecto_final.triage.network.ResultadoEnvioChat
+import com.proyecto_final.triage.network.enviarConReconciliacion
+import com.proyecto_final.triage.network.obtenerChatParaReconciliar
+import com.proyecto_final.triage.network.hayRespuestaBotNuevaDesde
 import com.proyecto_final.triage.network.EventoVoz
 import com.proyecto_final.triage.network.MensajeVozCliente
 import com.proyecto_final.triage.network.conectarChatVoz
@@ -35,6 +39,8 @@ data class ChatUiState(
     val chatId: Long? = null,
     val iniciando: Boolean = false,
     val enviando: Boolean = false,
+    val respuestaPendiente: Boolean = false,
+    val verificandoRespuesta: Boolean = false,
     val mensajes: List<ChatMensaje> = emptyList(),
     val mensajesNoEnviados: Set<String> = emptySet(),
     val finalizado: Boolean = false,
@@ -52,6 +58,45 @@ data class ChatUiState(
     val transcripcionBot: String = ""
 )
 
+internal fun ChatUiState.aplicarChatReconciliado(chat: com.proyecto_final.triage.network.ChatResponse, procesando: Boolean): ChatUiState = copy(
+    enviando = false,
+    respuestaPendiente = procesando && !chat.finalizado,
+    mensajes = chat.mensajes,
+    mensajesNoEnviados = emptySet(),
+    borrador = "",
+    atencionEstimada = if (procesando) atencionEstimada else null,
+    finalizado = chat.finalizado || chat.estadoClasificacion.equals("FALLIDA", ignoreCase = true),
+    estadoClasificacion = chat.estadoClasificacion,
+    envioExitoso = null,
+    error = null
+)
+internal fun ChatUiState.aplicarChatVerificadoPendiente(
+    chat: com.proyecto_final.triage.network.ChatResponse,
+    respuestaRecibida: Boolean
+): ChatUiState {
+    val estadoTerminal = chat.estadoClasificacion.equals("COMPLETADA", ignoreCase = true) ||
+        chat.estadoClasificacion.equals("FALLIDA", ignoreCase = true)
+    val entrevistaCerrada = chat.finalizado || estadoTerminal
+    return copy(
+        verificandoRespuesta = false,
+        respuestaPendiente = !(respuestaRecibida || entrevistaCerrada),
+        mensajes = chat.mensajes,
+        mensajesNoEnviados = emptySet(),
+        borrador = "",
+        finalizado = entrevistaCerrada,
+        estadoClasificacion = chat.estadoClasificacion,
+        envioExitoso = null,
+        error = null
+    )
+}
+internal fun ChatUiState.aplicarFalloEnvioNoConfirmado(contenido: String, error: Throwable): ChatUiState = copy(
+    enviando = false,
+    respuestaPendiente = false,
+    envioExitoso = false,
+    error = mensajeErrorEnvioChat(error),
+    mensajesNoEnviados = mensajesNoEnviados + contenido,
+    borrador = contenido
+)
 enum class EstadoVoz {
     INACTIVA,
     CONECTANDO,
@@ -121,8 +166,9 @@ class ChatViewModel : ViewModel() {
                 _state.value = _state.value.copy(
                     chatId = chat.id ?: id,
                     mensajes = chat.mensajes,
-                    finalizado = chat.finalizado,
+                    finalizado = chat.finalizado || chat.estadoClasificacion.equals("FALLIDA", ignoreCase = true),
                     estadoClasificacion = chat.estadoClasificacion,
+                    respuestaPendiente = !chat.finalizado && chat.estadoClasificacion.equals("PENDIENTE", ignoreCase = true),
                     iniciando = false
                 )
             }
@@ -149,8 +195,9 @@ class ChatViewModel : ViewModel() {
                 _state.value = _state.value.copy(
                     chatId = chat.id,
                     mensajes = chat.mensajes,
-                    finalizado = chat.finalizado,
+                    finalizado = chat.finalizado || chat.estadoClasificacion.equals("FALLIDA", ignoreCase = true),
                     estadoClasificacion = chat.estadoClasificacion,
+                    respuestaPendiente = !chat.finalizado && chat.estadoClasificacion.equals("PENDIENTE", ignoreCase = true),
                     iniciando = false
                 )
             }
@@ -164,6 +211,7 @@ class ChatViewModel : ViewModel() {
     }
 
     fun actualizarBorrador(texto: String) {
+        if (_state.value.respuestaPendiente || _state.value.verificandoRespuesta || _state.value.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)) return
         _state.value = _state.value.copy(
             borrador = texto,
             envioExitoso = null
@@ -171,48 +219,58 @@ class ChatViewModel : ViewModel() {
     }
 
     fun enviarBorrador() {
-        val chatId = _state.value.chatId
-        val contenido = _state.value.borrador
-        if (chatId == null || contenido.isBlank() || _state.value.enviando || _state.value.finalizado) return
-        if (_state.value.estadoVoz != EstadoVoz.INACTIVA) return
+        val estadoActual = _state.value
+        val chatId = estadoActual.chatId
+        val contenido = estadoActual.borrador
+        if (chatId == null || contenido.isBlank() || estadoActual.enviando || estadoActual.finalizado || estadoActual.respuestaPendiente || estadoActual.verificandoRespuesta || estadoActual.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)) return
+        if (estadoActual.estadoVoz != EstadoVoz.INACTIVA) return
 
-        // El mensaje del paciente se muestra al instante (actualización optimista),
-        // con la hora local para que la burbuja la muestre mientras llega la respuesta.
-        // Si es un reintento de un mensaje fallido, se reutiliza la burbuja existente
-        // y solo se actualiza su hora.
-        val esReintento = _state.value.mensajesNoEnviados.contains(contenido)
+        val esReintento = estadoActual.mensajesNoEnviados.contains(contenido)
+        // Exclude the last optimistic bubble from the ordered backend snapshot on a manual retry.
+        val mensajesAntes = if (esReintento && estadoActual.mensajes.lastOrNull()?.let {
+                it.autor == AUTOR_PACIENTE && it.contenido == contenido
+            } == true
+        ) estadoActual.mensajes.dropLast(1) else estadoActual.mensajes
         val hora = fechaHoraLocal()
         val mensajesActualizados = if (esReintento) {
-            _state.value.mensajes.mapIndexed { index, mensaje ->
-                if (index == _state.value.mensajes.lastIndex && mensaje.contenido == contenido) {
+            estadoActual.mensajes.mapIndexed { index, mensaje ->
+                if (index == estadoActual.mensajes.lastIndex && mensaje.contenido == contenido) {
                     mensaje.copy(fechaHoraEnvio = hora)
                 } else {
                     mensaje
                 }
             }
         } else {
-            _state.value.mensajes +
-                ChatMensaje(contenido = contenido, autor = "PACIENTE", fechaHoraEnvio = hora)
+            estadoActual.mensajes + ChatMensaje(contenido = contenido, autor = AUTOR_PACIENTE, fechaHoraEnvio = hora)
         }
 
-        _state.value = _state.value.copy(
+        _state.value = estadoActual.copy(
             enviando = true,
+            respuestaPendiente = false,
             error = null,
             envioExitoso = null,
             borrador = "",
-            mensajesNoEnviados = _state.value.mensajesNoEnviados - contenido,
+            mensajesNoEnviados = estadoActual.mensajesNoEnviados - contenido,
             mensajes = mensajesActualizados
         )
 
         viewModelScope.launch {
-            enviarMensaje(chatId, contenido)
-                .onSuccess { respuesta ->
+            when (val resultado = enviarConReconciliacion(
+                chatId = chatId,
+                contenido = contenido,
+                mensajesAntes = mensajesAntes,
+                enviar = ::enviarMensaje,
+                obtener = ::obtenerChatParaReconciliar
+            )) {
+                is ResultadoEnvioChat.Respuesta -> {
+                    val respuesta = resultado.respuesta
                     println("CHAT RESPUESTA: ${respuesta.respuesta}")
                     if (respuesta.origenRespuesta == ORIGEN_CIERRE_SIN_DATOS) {
                         sincronizarCierreSinDatos(chatId, respuesta.respuesta)
                     } else {
                         _state.value = _state.value.copy(
                             enviando = false,
+                            respuestaPendiente = false,
                             envioExitoso = true,
                             error = null,
                             mensajes = _state.value.mensajes + respuesta.respuesta,
@@ -222,32 +280,46 @@ class ChatViewModel : ViewModel() {
                         )
                     }
                 }
-                .onFailure { error ->
-                    println("CHAT ERROR AL ENVIAR: ${error.message}")
-                    _state.value = _state.value.copy(
-                        enviando = false,
-                        envioExitoso = false,
-                        error = mensajeErrorEnvioChat(error),
-                        mensajesNoEnviados = _state.value.mensajesNoEnviados + contenido,
-                        borrador = contenido
+                is ResultadoEnvioChat.Confirmado -> {
+                    _state.value = _state.value.aplicarChatReconciliado(
+                        resultado.chat,
+                        procesando = resultado.procesando
                     )
-                    obtenerChat(chatId).onSuccess { chat ->
-                        if (chat.finalizado) {
-                            _state.value = _state.value.copy(
-                                mensajes = chat.mensajes,
-                                finalizado = true,
-                                estadoClasificacion = chat.estadoClasificacion,
-                                mensajesNoEnviados = emptySet(),
-                                borrador = "",
-                                envioExitoso = null,
-                                error = null
-                            )
-                        }
-                    }
                 }
+                is ResultadoEnvioChat.NoConfirmado -> {
+                    val error = resultado.error
+                    println("CHAT ERROR AL ENVIAR: ${error.message}")
+                    _state.value = _state.value.aplicarFalloEnvioNoConfirmado(contenido, error)
+                }
+            }
         }
     }
-
+    /** Refreshes a backend-accepted patient message without sending it again. */
+    fun actualizarConversacion() {
+        val actual = _state.value
+        val chatId = actual.chatId ?: return
+        if ((!actual.respuestaPendiente && !actual.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)) || actual.verificandoRespuesta) return
+        _state.value = actual.copy(verificandoRespuesta = true, error = null)
+        viewModelScope.launch {
+            try {
+                obtenerChatParaReconciliar(chatId, 1_200L)
+                    .onSuccess { chat ->
+                        val estadoActual = _state.value
+                        val respuestaRecibida = hayRespuestaBotNuevaDesde(estadoActual.mensajes, chat.mensajes)
+                        _state.value = estadoActual.aplicarChatVerificadoPendiente(chat, respuestaRecibida)
+                    }
+                    .onFailure { error ->
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        _state.value = _state.value.copy(
+                            verificandoRespuesta = false,
+                            error = "El mensaje quedó guardado, pero no pudimos actualizar la conversación. No lo reenvíes; intentá actualizar otra vez."
+                        )
+                    }
+            } finally {
+                _state.update { if (it.verificandoRespuesta) it.copy(verificandoRespuesta = false) else it }
+            }
+        }
+    }
     /** A no-data closure ends the interview without representing a successful classification. */
     private suspend fun sincronizarCierreSinDatos(chatId: Long, respuesta: ChatMensaje) {
         val actual = _state.value
@@ -327,7 +399,7 @@ class ChatViewModel : ViewModel() {
         val actual = _state.value
         val chatId = actual.chatId ?: return
         if (!actual.vozDisponible || actual.estadoVoz != EstadoVoz.INACTIVA ||
-            actual.finalizado || actual.enviando
+            actual.finalizado || actual.enviando || actual.respuestaPendiente || actual.verificandoRespuesta || actual.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)
         ) return
 
         _state.value = actual.copy(

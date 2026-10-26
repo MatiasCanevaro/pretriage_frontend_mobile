@@ -7,12 +7,14 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.plugins.timeout
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -81,11 +83,12 @@ internal fun mensajeErrorEnvioChat(error: Throwable): String = when ((error as? 
 private suspend inline fun <reified T> procesarRespuesta(
     tag: String,
     response: HttpResponse,
-    mensajeError: String
+    mensajeError: String,
+    logBody: Boolean = true
 ): Result<T> {
     println("$tag STATUS: ${response.status}")
     val bodyText = response.bodyAsText()
-    println("$tag BODY: $bodyText")
+    if (logBody) println("$tag BODY: $bodyText")
 
     if (response.status == HttpStatusCode.OK) {
         return Result.success(json.decodeFromString<T>(bodyText))
@@ -115,8 +118,27 @@ suspend fun obtenerChat(id: Long): Result<ChatResponse> {
         val response = httpClient.get("${AppConfig.baseUrl}/api/chat/$id") {
         }
         procesarRespuesta("CHAT OBTENER", response, "No se pudo recuperar el chat")
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         println("CHAT OBTENER EXCEPTION: ${e.message}")
+        Result.failure(e)
+    }
+}
+
+internal suspend fun obtenerChatParaReconciliar(id: Long, timeoutMillis: Long): Result<ChatResponse> {
+    return try {
+        val response = httpClient.get("${AppConfig.baseUrl}/api/chat/$id") {
+            timeout {
+                requestTimeoutMillis = timeoutMillis
+                connectTimeoutMillis = timeoutMillis
+                socketTimeoutMillis = timeoutMillis
+            }
+        }
+        procesarRespuesta("CHAT RECONCILIAR", response, "No se pudo verificar el estado del chat", logBody = false)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
         Result.failure(e)
     }
 }
@@ -129,6 +151,8 @@ suspend fun enviarMensaje(id: Long, contenido: String): Result<RespuestaChatResp
             setBody(EnviarMensajeRequest(contenido = contenido))
         }
         procesarRespuesta("CHAT ENVIAR", response, "No se pudo enviar el mensaje")
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         println("CHAT ENVIAR EXCEPTION: ${e.message}")
         Result.failure(e)
@@ -141,6 +165,8 @@ suspend fun reintentarClasificacionChat(id: Long): Result<RespuestaChatResponse>
         contentType(ContentType.Application.Json)
     }
     procesarRespuesta("CHAT REINTENTAR", response, "No pudimos procesar tus respuestas. Intentá nuevamente.")
+} catch (e: CancellationException) {
+    throw e
 } catch (e: Exception) {
     Result.failure(e)
 }

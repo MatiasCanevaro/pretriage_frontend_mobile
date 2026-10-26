@@ -210,3 +210,30 @@ finalizaron correctamente; pasaron las nueve pruebas de política de audio. Se u
 un override local de `BACKEND_BASE_URL`, log temporal y detención del daemon.
 La compilación comprueba Android; la regresión acústica física indicada arriba y
 la compilación iOS requieren sus respectivos dispositivos/entornos.
+
+### Reconciliación de mensajes del chat
+
+Si falla un `POST /api/chat/{id}/mensajes`, la app trata el resultado como ambiguo y
+consulta `GET /api/chat/{id}` con un límite de 1.2 s por lectura y cuatro intentos
+con pausas acotadas. Solo reconcilia errores de red, HTTP 5xx y 409; otros errores
+HTTP conservan el borrador y el aviso original. La cancelación de la coroutine se
+propaga y no se presenta como fallo de envío.
+
+Cuando el GET muestra el nuevo mensaje del paciente en el sufijo ordenado respecto
+del snapshot previo, la app reemplaza la lista local por la del servidor y no ofrece
+reenviar ese mensaje. Si todavía no llegó una respuesta BOT, finaliza el indicador de
+carga y muestra que el mensaje quedó guardado mientras se espera respuesta. Si el GET
+no confirma el mensaje o el chat cerrado, conserva el borrador y el error para un
+reintento manual; nunca repite el POST automáticamente. Como el DTO no contiene IDs
+de mensaje, la comparación requiere que el historial previo se mantenga como prefijo
+ordenado por autor y contenido.
+
+La consulta puede repetirse con «Actualizar conversación», que hace un GET con timeout breve y no reenvía el POST. Mientras se espera, la app bloquea nuevos mensajes y voz; si el estado sigue `PENDIENTE`, el control aparece en la tarjeta de procesamiento.
+
+Pruebas de reconciliación (Android unit tests):
+`.\gradlew.bat :composeApp:testDebugUnitTest --tests com.proyecto_final.triage.ChatSendReconciliationTest`
+Verificado el 25 de octubre de 2026: `assembleDebug` y `testDebugUnitTest`
+completados, con 24 pruebas aprobadas (10 de reconciliación). Se usó un log
+ temporal y se detuvo Gradle al terminar. El APK de prueba se generó con el
+ override local `-PBACKEND_BASE_URL=http://192.168.100.241:8080`; no se cambió
+ `local.properties` ni se guardaron credenciales en el repositorio.
