@@ -5,6 +5,7 @@ import com.proyecto_final.triage.network.ErrorHttpChat
 import com.proyecto_final.triage.network.ChatResponse
 import com.proyecto_final.triage.network.RespuestaChatResponse
 import com.proyecto_final.triage.network.ResultadoEnvioChat
+import com.proyecto_final.triage.network.ResultadoPostMensaje
 import com.proyecto_final.triage.network.enviarConReconciliacion
 import com.proyecto_final.triage.network.hayRespuestaBotNuevaDesde
 import com.proyecto_final.triage.viewmodels.ChatUiState
@@ -73,21 +74,17 @@ class ChatSendReconciliationTest {
     }
 
     @Test
-    fun getSinConfirmacionConservaFalloParaReintentoManual() {
+    fun getSinConfirmacionMantieneSolicitudBloqueadaParaConsultaDeEstado() {
         val previo = listOf(ChatMensaje("Hola", "BOT"))
         val transporte = TransporteSimulado(listOf(Result.success(chat(previo))))
 
         val resultado = enviar(transporte, previo)
 
-        val noConfirmado = assertIs<ResultadoEnvioChat.NoConfirmado>(resultado)
-        assertEquals(errorDeTransporte, noConfirmado.error)
+        val desconocido = assertIs<ResultadoEnvioChat.Desconocido>(resultado)
+        assertEquals("request-1", desconocido.solicitudId)
         assertEquals(1, transporte.envios)
         assertTrue(transporte.lecturasRealizadas > 0)
-        val abierto = estadoOptimista(previo).aplicarFalloEnvioNoConfirmado(texto, noConfirmado.error)
-        assertEquals(texto, abierto.borrador)
-        assertTrue(texto in abierto.mensajesNoEnviados)
-        assertTrue(abierto.error != null)
-        assertFalse(abierto.enviando)
+        assertEquals(previo, desconocido.chat?.mensajes)
     }
     @Test
     fun errorDeAutorizacionNoHaceGetsYSeConservaComoErrorReal() {
@@ -108,8 +105,9 @@ class ChatSendReconciliationTest {
                 enviarConReconciliacion(
                     chatId = 17,
                     contenido = texto,
+                    solicitudId = "request-1",
                     mensajesAntes = emptyList(),
-                    enviar = { _, _ -> throw cancelacion },
+                    enviar = { _, _, _ -> throw cancelacion },
                     obtener = { _, _ ->
                         lecturas++
                         Result.success(chat(emptyList()))
@@ -128,7 +126,7 @@ class ChatSendReconciliationTest {
 
         val resultado = enviar(transporte, previo)
 
-        assertIs<ResultadoEnvioChat.NoConfirmado>(resultado)
+        assertIs<ResultadoEnvioChat.Desconocido>(resultado)
         assertEquals(1, transporte.envios)
     }
 
@@ -142,7 +140,7 @@ class ChatSendReconciliationTest {
 
         val confirmado = assertIs<ResultadoEnvioChat.Confirmado>(resultado)
         assertTrue(confirmado.procesando)
-        assertEquals(4, transporte.lecturasRealizadas)
+        assertEquals(1, transporte.lecturasRealizadas)
         val estado = estadoOptimista(previo).aplicarChatReconciliado(confirmado.chat, confirmado.procesando)
         assertTrue(estado.respuestaPendiente)
         assertEquals("", estado.borrador)
@@ -195,6 +193,7 @@ class ChatSendReconciliationTest {
         enviarConReconciliacion(
             chatId = 17,
             contenido = contenido,
+            solicitudId = "request-1",
             mensajesAntes = previo,
             enviar = transporte::enviar,
             obtener = transporte::obtener,
@@ -221,16 +220,17 @@ class ChatSendReconciliationTest {
         var envios = 0
         var lecturasRealizadas = 0
 
-        suspend fun enviar(id: Long, contenido: String): Result<RespuestaChatResponse> {
+        suspend fun enviar(id: Long, contenido: String, solicitudId: String): Result<ResultadoPostMensaje> {
             envios++
-            assertEquals(17, id)
+            assertEquals(17L, id)
             assertEquals(contenidoEsperado, contenido)
+            assertEquals("request-1", solicitudId)
             return Result.failure(falloPost)
         }
 
         suspend fun obtener(id: Long, timeoutMillis: Long): Result<ChatResponse> {
             lecturasRealizadas++
-            assertEquals(17, id)
+            assertEquals(17L, id)
             assertTrue(timeoutMillis in 1..2_000)
             return lecturas.getOrElse(lecturasRealizadas - 1) { lecturas.last() }
         }

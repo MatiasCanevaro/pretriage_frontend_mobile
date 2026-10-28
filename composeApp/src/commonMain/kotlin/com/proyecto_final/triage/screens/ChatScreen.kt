@@ -39,8 +39,10 @@ import com.proyecto_final.triage.network.ChatMensaje
 import com.proyecto_final.triage.network.esAutorBot
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.viewmodels.ChatViewModel
+import com.proyecto_final.triage.viewmodels.turnoTextoBloqueaChat
 import com.proyecto_final.triage.viewmodels.ChatClassificationPresentation
 import com.proyecto_final.triage.viewmodels.presentacionClasificacionChat
+import com.proyecto_final.triage.viewmodels.textoPanelVoz
 import com.proyecto_final.triage.viewmodels.EstadoVoz
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -93,7 +95,7 @@ fun ChatContent(
     }
 
     // El InfoBanner se muestra hasta que el usuario envía su primer mensaje.
-    val mostrarInfo = state.mensajes.none { !esAutorBot(it.autor) }
+    val mostrarInfo = !state.iniciando && state.mensajes.none { !esAutorBot(it.autor) }
     // Offset de items fijos antes de los mensajes: header + (banner cuando está visible)
     val offsetMensajes = if (mostrarInfo) 2 else 1
 
@@ -215,11 +217,11 @@ fun ChatContent(
                 }
             }
 
-            if (state.enviando) {
+            if (state.enviando || state.respuestaPendiente || state.siguiendoTurnoTexto) {
                 item {
                     BurbujaDeMensaje(
                         ChatMensaje(
-                            contenido = "Escribiendo...",
+                            contenido = if (state.turnoTextoDesconocido) "Consultando estado..." else "Escribiendo...",
                             autor = "BOT"
                         ),
                         escribiendo = true
@@ -269,57 +271,75 @@ fun ChatContent(
                 Spacer(modifier = Modifier.height(12.dp))
             }
             ChatClassificationPresentation.PROCESANDO -> {
-                InfoBanner(text = "Tus respuestas están guardadas. Estamos procesándolas...")
+                InfoBanner(text = "Estamos procesando tus respuestas...")
                 if (state.error != null) {
                     Text(state.error ?: "Error", color = MaterialTheme.colorScheme.error)
                 }
-                Button(
-                    onClick = viewModel::actualizarConversacion,
-                    enabled = !state.verificandoRespuesta
-                ) {
-                    Text(if (state.verificandoRespuesta) "Consultando..." else "Actualizar conversación")
+                if (state.actualizacionCierreDisponible) {
+                    Button(onClick = viewModel::actualizarConversacion, enabled = !state.verificandoRespuesta) {
+                        Text(if (state.verificandoRespuesta) "Consultando..." else "Consultar estado")
+                    }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
             ChatClassificationPresentation.FALLIDA -> {
-                val textoAviso = when {
-                    state.enviando -> "Tus respuestas están guardadas. Estamos reintentando el procesamiento..."
-                    state.error != null -> "No pudimos procesar tus respuestas. Quedaron guardadas; podés intentarlo nuevamente."
-                    else -> "Tus respuestas quedaron registradas. No hace falta responder de nuevo."
-                }
-                InfoBanner(text = textoAviso)
-                Button(onClick = viewModel::reintentarProcesamiento, enabled = !state.enviando) {
-                    Text(if (state.enviando) "Procesando..." else "Reintentar procesamiento")
-                }
+                InfoBanner(text = "No pudimos procesar tus respuestas. Tus respuestas quedaron guardadas.")
                 Spacer(modifier = Modifier.height(12.dp))
             }
             ChatClassificationPresentation.CERRADA_SIN_RESULTADO -> {
-                InfoBanner(text = "La entrevista terminó. Estamos verificando el estado de tus respuestas...")
+                InfoBanner(text = if (state.siguiendoCierre) "Estamos confirmando el resultado..." else "Todavía no pudimos confirmar el resultado.")
+                if (state.error != null) {
+                    Text(state.error ?: "Error", color = MaterialTheme.colorScheme.error)
+                }
+                if (state.actualizacionCierreDisponible) {
+                    Button(onClick = viewModel::actualizarConversacion, enabled = !state.verificandoRespuesta) {
+                        Text(if (state.verificandoRespuesta) "Consultando..." else "Consultar estado")
+                    }
+                }
                 Spacer(modifier = Modifier.height(12.dp))
             }
-            ChatClassificationPresentation.NO_SOLICITADA -> Unit
+            ChatClassificationPresentation.NO_SOLICITADA -> {
+                if (state.finalizado) {
+                    InfoBanner(text = "La entrevista finalizó. Tus respuestas quedaron registradas.", icon = Icons.Filled.Check)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
         }
 
-        if (state.respuestaPendiente && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)) {
-            InfoBanner(text = "El mensaje quedó guardado. Estamos esperando la respuesta del asistente.")
-            Button(
-                onClick = viewModel::actualizarConversacion,
-                enabled = !state.verificandoRespuesta
-            ) {
-                Text(if (state.verificandoRespuesta) "Consultando..." else "Actualizar conversación")
+        if (state.turnoTextoDesconocido && state.chatId != null && !state.siguiendoTurnoTexto) {
+            InfoBanner(text = if (state.solicitudTextoPendienteId != null) {
+                "No pudimos confirmar el estado del mensaje. Consultá el estado; no lo reenvíes."
+            } else {
+                "No pudimos confirmar el estado del chat. Consultá el estado antes de continuar."
+            })
+            Button(onClick = viewModel::actualizarEstadoTurnoTexto, enabled = !state.verificandoRespuesta) {
+                Text(if (state.verificandoRespuesta) "Consultando..." else "Consultar estado")
             }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        if (state.estadoTurnoTexto.equals("NO_DISPONIBLE", ignoreCase = true)) {
+            InfoBanner(text = "El asistente no está disponible. No se pudo continuar el chat.")
             Spacer(modifier = Modifier.height(12.dp))
         }
         // Error al enviar (texto conservado en el campo). Once closed, classification status is authoritative.
         if (state.error != null && state.chatId != null && !state.finalizado) {
-            Text(
-                text = state.error ?: "Error",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            )
+            if (state.errorVoz && state.estadoVoz == EstadoVoz.INACTIVA) {
+                ErrorBanner(
+                    message = state.error ?: "Se interrumpió la conexión de voz.",
+                    buttonText = "Retomar voz",
+                    icon = Icons.Filled.Mic,
+                    onButtonClick = viewModel::iniciarVoz
+                )
+            } else {
+                Text(
+                    text = state.error ?: "Error",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                )
+            }
         }
 
         if (mostrarExito && !state.finalizado && state.error == null) {
@@ -334,10 +354,12 @@ fun ChatContent(
         }
 
         // Conversación por voz en curso: reemplaza la entrada de texto
-        if (vozActiva) {
+        if (vozActiva && state.estadoVoz != EstadoVoz.PROCESANDO) {
             PanelVoz(
                 estado = state.estadoVoz,
                 modoEntrada = state.modoEntradaVoz,
+                procesandoRespuesta = state.procesandoRespuestaVoz,
+                asistenteHablando = state.asistenteHablandoVoz,
                 onDetener = viewModel::detenerVoz
             )
             return@Column
@@ -355,7 +377,7 @@ fun ChatContent(
             OutlinedTextField(
                 value = state.borrador,
                 onValueChange = viewModel::actualizarBorrador,
-                enabled = state.chatId != null && !state.finalizado && !state.enviando && !state.respuestaPendiente && !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true),
+                enabled = state.chatId != null && !state.iniciando && !state.finalizado && !state.enviando && !state.turnoTextoBloqueaChat && !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true),
                 placeholder = {
                     Text("Escribí tus síntomas...")
                 },
@@ -369,9 +391,10 @@ fun ChatContent(
 
             val puedeHablar = state.vozDisponible &&
                 state.chatId != null &&
+                !state.iniciando &&
                 !state.finalizado &&
                 !state.enviando &&
-                !state.respuestaPendiente &&
+                !state.turnoTextoBloqueaChat &&
                 !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)
 
             // Micrófono: solo si todavía no escribió nada, para no competir con el botón de enviar.
@@ -397,9 +420,10 @@ fun ChatContent(
 
             val puedeEnviar = state.borrador.isNotBlank() &&
                 state.chatId != null &&
+                !state.iniciando &&
                 !state.finalizado &&
                 !state.enviando &&
-                !state.respuestaPendiente &&
+                !state.turnoTextoBloqueaChat &&
                 !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)
 
             if (state.enviando) {
@@ -535,17 +559,11 @@ private fun BurbujaDeMensaje(
 private fun PanelVoz(
     estado: EstadoVoz,
     modoEntrada: ModoEntradaVoz,
+    procesandoRespuesta: Boolean,
+    asistenteHablando: Boolean,
     onDetener: () -> Unit
 ) {
-    val texto = when (estado) {
-        EstadoVoz.CONECTANDO -> "Conectando con el asistente..."
-        EstadoVoz.ESCUCHANDO -> if (modoEntrada == ModoEntradaVoz.INTERRUMPIBLE)
-            "Podés interrumpir hablando."
-        else "Respondé cuando el asistente termine de hablar."
-        EstadoVoz.PROCESANDO -> "Entrevista terminada. Estamos registrando tus respuestas..."
-        EstadoVoz.DETENIENDO -> "Terminando la conversación de voz..."
-        EstadoVoz.INACTIVA -> ""
-    }
+    val texto = textoPanelVoz(estado, modoEntrada, procesandoRespuesta, asistenteHablando)
     val puedeDetener = estado == EstadoVoz.CONECTANDO || estado == EstadoVoz.ESCUCHANDO
 
     Surface(

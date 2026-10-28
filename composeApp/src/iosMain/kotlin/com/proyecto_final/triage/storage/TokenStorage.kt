@@ -17,6 +17,7 @@ actual object TokenStorage {
     }
 
     actual fun clearTokens() {
+        chatConversationCache.limpiar()
         // Implementación específica para iOS
     }
 }

@@ -38,13 +38,22 @@ data class ChatResponse(
     val timestamp: String? = null,
     val finalizado: Boolean = false,
     // Null means a legacy server omitted the classification status; finalizado alone is not triage success.
-    val estadoClasificacion: String? = null
+    val estadoClasificacion: String? = null,
+    val estadoTurnoTexto: String? = null,
+    val solicitudTurnoTextoId: String? = null,
+    val intentosTurnoTexto: Int = 0
 )
 
 @Serializable
 data class EnviarMensajeRequest(
-    val contenido: String
+    val contenido: String,
+    val solicitudId: String? = null
 )
+
+sealed interface ResultadoPostMensaje {
+    data class TurnoAceptado(val chat: ChatResponse) : ResultadoPostMensaje
+    data class RespuestaInmediata(val respuesta: RespuestaChatResponse) : ResultadoPostMensaje
+}
 
 @Serializable
 data class AtencionEstimada(
@@ -75,7 +84,7 @@ internal fun mensajeErrorEnvioChat(error: Throwable): String = when ((error as? 
     401, 403 -> "No pudimos acceder a tu chat. Volvé a iniciar sesión."
     404 -> "No pudimos encontrar este chat. Volvé a abrirlo."
     429 -> "Hay demasiadas solicitudes. Esperá unos segundos y volvé a intentar."
-    in 500..599 -> "El asistente no pudo responder en este intento. Tu mensaje sigue pendiente; podés reenviarlo."
+    in 500..599 -> "No pudimos confirmar la respuesta. Consultá el estado del chat antes de continuar."
     null -> "No se pudo enviar el mensaje. Verificá tu conexión e intentá de nuevo."
     else -> "No pudimos procesar el mensaje. Intentá nuevamente."
 }
@@ -143,14 +152,28 @@ internal suspend fun obtenerChatParaReconciliar(id: Long, timeoutMillis: Long): 
     }
 }
 
-suspend fun enviarMensaje(id: Long, contenido: String): Result<RespuestaChatResponse> {
+suspend fun enviarMensaje(id: Long, contenido: String, solicitudId: String): Result<ResultadoPostMensaje> {
     return try {
-        println("CHAT ENVIAR ($id): $contenido")
+        println("CHAT ENVIAR ($id)")
         val response = httpClient.post("${AppConfig.baseUrl}/api/chat/$id/mensajes") {
             contentType(ContentType.Application.Json)
-            setBody(EnviarMensajeRequest(contenido = contenido))
+            setBody(EnviarMensajeRequest(contenido = contenido, solicitudId = solicitudId))
+            timeout {
+                requestTimeoutMillis = 10_000L
+                connectTimeoutMillis = 5_000L
+                socketTimeoutMillis = 10_000L
+            }
         }
-        procesarRespuesta("CHAT ENVIAR", response, "No se pudo enviar el mensaje")
+        println("CHAT ENVIAR STATUS: ${response.status}")
+        val bodyText = response.bodyAsText()
+        if (response.status == HttpStatusCode.Accepted) {
+            Result.success(ResultadoPostMensaje.TurnoAceptado(json.decodeFromString<ChatResponse>(bodyText)))
+        } else if (response.status == HttpStatusCode.OK) {
+            Result.success(ResultadoPostMensaje.RespuestaInmediata(json.decodeFromString<RespuestaChatResponse>(bodyText)))
+        } else {
+            val errorResponse = runCatching { json.decodeFromString<ErrorResponse>(bodyText) }.getOrNull()
+            Result.failure(ErrorHttpChat(response.status.value, errorResponse?.error ?: "No se pudo enviar el mensaje"))
+        }
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {

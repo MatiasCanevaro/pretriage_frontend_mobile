@@ -4,45 +4,61 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 internal const val CHAT_RECONCILIATION_TIMEOUT_MS = 1_200L
-
 private val reconciliationBackoffMs = listOf(250L, 500L, 1_000L)
 
 internal sealed interface ResultadoEnvioChat {
     data class Respuesta(val respuesta: RespuestaChatResponse) : ResultadoEnvioChat
     data class Confirmado(val chat: ChatResponse, val procesando: Boolean = false) : ResultadoEnvioChat
+    data class Desconocido(val solicitudId: String, val chat: ChatResponse? = null) : ResultadoEnvioChat
     data class NoConfirmado(val error: Throwable) : ResultadoEnvioChat
 }
 
 /**
- * A failed POST has an unknown outcome. Check whether the exact new patient message appears
- * after the pre-send ordered snapshot before exposing it as unsent. A patient-only suffix may
- * still be processing, so poll a bounded number of times and never submit the POST again here.
+ * Submit one patient turn. An ambiguous POST is reconciled by GET only; the same request ID is
+ * retained for status recovery, and this function never replays the POST.
  */
 internal suspend fun enviarConReconciliacion(
     chatId: Long,
     contenido: String,
+    solicitudId: String,
     mensajesAntes: List<ChatMensaje>,
-    enviar: suspend (Long, String) -> Result<RespuestaChatResponse>,
+    enviar: suspend (Long, String, String) -> Result<ResultadoPostMensaje>,
     obtener: suspend (Long, Long) -> Result<ChatResponse>,
     esperar: suspend (Long) -> Unit = { delay(it) }
 ): ResultadoEnvioChat {
-    val respuestaPost = try {
-        enviar(chatId, contenido)
+    val post = try {
+        enviar(chatId, contenido, solicitudId)
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (error: Exception) {
         Result.failure(error)
     }
 
-    respuestaPost.getOrNull()?.let { return ResultadoEnvioChat.Respuesta(it) }
-    val errorPost = respuestaPost.exceptionOrNull() ?: IllegalStateException("No se pudo enviar el mensaje")
+    post.getOrNull()?.let { resultado ->
+        when (resultado) {
+            is ResultadoPostMensaje.RespuestaInmediata -> return ResultadoEnvioChat.Respuesta(resultado.respuesta)
+            is ResultadoPostMensaje.TurnoAceptado -> {
+                val idRemoto = resultado.chat.solicitudTurnoTextoId
+                val estadoRemoto = resultado.chat.estadoTurnoTexto
+                if ((idRemoto != null && idRemoto != solicitudId) ||
+                    (estadoRemoto.equals("COMPLETADA", ignoreCase = true) && idRemoto != solicitudId)
+                ) return ResultadoEnvioChat.Desconocido(solicitudId, resultado.chat)
+                return ResultadoEnvioChat.Confirmado(
+                    resultado.chat,
+                    procesando = !estadoRemoto.equals("COMPLETADA", ignoreCase = true) &&
+                        !estadoRemoto.equals("NO_DISPONIBLE", ignoreCase = true)
+                )
+            }
+        }
+    }
+
+    val errorPost = post.exceptionOrNull() ?: IllegalStateException("No se pudo enviar el mensaje")
     if (errorPost is CancellationException) throw errorPost
-    if (errorPost is ErrorHttpChat && errorPost.estado != 409 && errorPost.estado !in 500..599) {
+    if (errorPost is ErrorHttpChat && errorPost.estado !in 500..599 && errorPost.estado != 409) {
         return ResultadoEnvioChat.NoConfirmado(errorPost)
     }
 
-    var mensajePacienteGuardado: ChatResponse? = null
-
+    var ultimoChat: ChatResponse? = null
     for (attempt in 0..reconciliationBackoffMs.size) {
         val lectura = try {
             obtener(chatId, CHAT_RECONCILIATION_TIMEOUT_MS)
@@ -51,38 +67,39 @@ internal suspend fun enviarConReconciliacion(
         } catch (error: Exception) {
             Result.failure(error)
         }
-
         lectura.onSuccess { chat ->
-            if (chat.finalizado || chat.estadoClasificacion.equals("FALLIDA", ignoreCase = true)) {
-                return ResultadoEnvioChat.Confirmado(chat)
+            ultimoChat = chat
+            val estadoTurno = chat.estadoTurnoTexto.orEmpty()
+            if (chat.solicitudTurnoTextoId == solicitudId) {
+                return ResultadoEnvioChat.Confirmado(
+                    chat,
+                    procesando = estadoTurno.equals("PENDIENTE", ignoreCase = true)
+                )
             }
+            if (estadoTurno.equals("NO_DISPONIBLE", ignoreCase = true) || chat.finalizado ||
+                chat.estadoClasificacion.equals("COMPLETADA", ignoreCase = true) ||
+                chat.estadoClasificacion.equals("FALLIDA", ignoreCase = true)
+            ) return ResultadoEnvioChat.Confirmado(chat)
 
+            // Backward compatibility with servers that do not expose durable turn IDs.
             val suffix = nuevoSufijoOrdenado(mensajesAntes, chat.mensajes)
             val patientIndex = suffix.indexOfFirst {
                 it.autor?.trim() == AUTOR_PACIENTE && it.contenido.trim() == contenido.trim()
             }
             if (patientIndex >= 0) {
-                if (suffix.drop(patientIndex + 1).any { it.autor?.trim() == AUTOR_BOT }) {
-                    return ResultadoEnvioChat.Confirmado(chat)
-                }
-                mensajePacienteGuardado = chat
+                return ResultadoEnvioChat.Confirmado(
+                    chat,
+                    procesando = !suffix.drop(patientIndex + 1).any { it.autor?.trim() == AUTOR_BOT }
+                )
             }
-        }.onFailure { error ->
-            if (error is CancellationException) throw error
-        }
+        }.onFailure { error -> if (error is CancellationException) throw error }
 
-        if (attempt < reconciliationBackoffMs.size) {
-            esperar(reconciliationBackoffMs[attempt])
-        }
+        if (attempt < reconciliationBackoffMs.size) esperar(reconciliationBackoffMs[attempt])
     }
 
-    mensajePacienteGuardado?.let {
-        return ResultadoEnvioChat.Confirmado(it, procesando = true)
-    }
-
-    // A missing message in an open snapshot is not proof that the POST was rejected;
-    // preserve the user's draft and surface the original send failure for an explicit retry.
-    return ResultadoEnvioChat.NoConfirmado(errorPost)
+    // The caller keeps this request locked and switches to status-only polling. A missing GET
+    // snapshot cannot prove that an in-flight POST was rejected.
+    return ResultadoEnvioChat.Desconocido(solicitudId, ultimoChat)
 }
 
 /** Trim-only author/content comparison mirrors backend input trimming without ignoring order or duplicates. */

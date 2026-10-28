@@ -27,6 +27,7 @@ sealed interface EventoVoz {
     data object Interrumpido : EventoVoz
     data object TurnoCompleto : EventoVoz
     data object SesionPorExpirar : EventoVoz
+    data class ProcesandoRespuesta(val activo: Boolean) : EventoVoz
     data object EntrevistaFinalizada : EventoVoz
     data class TriageFinalizado(
         val respuesta: ChatMensaje?,
@@ -44,12 +45,13 @@ private data class EventoVozDTO(
     val mensaje: String? = null,
     val respuesta: ChatMensaje? = null,
     val atencionEstimada: AtencionEstimada? = null,
-    val origenRespuesta: String? = null
+    val origenRespuesta: String? = null,
+    val activo: Boolean? = null
 )
 
 private val jsonVoz = Json { ignoreUnknownKeys = true }
 
-private fun parsearEvento(texto: String): EventoVoz? {
+internal fun parsearEventoVoz(texto: String): EventoVoz? {
     val evento = runCatching { jsonVoz.decodeFromString<EventoVozDTO>(texto) }.getOrNull() ?: return null
     return when (evento.tipo) {
         "listo" -> EventoVoz.Listo
@@ -58,6 +60,7 @@ private fun parsearEvento(texto: String): EventoVoz? {
         "interrumpido" -> EventoVoz.Interrumpido
         "turno_completo" -> EventoVoz.TurnoCompleto
         "sesion_por_expirar" -> EventoVoz.SesionPorExpirar
+        "procesando_respuesta" -> evento.activo?.let { EventoVoz.ProcesandoRespuesta(it) }
         "entrevista_finalizada" -> EventoVoz.EntrevistaFinalizada
         "triage_finalizado" -> EventoVoz.TriageFinalizado(evento.respuesta, evento.atencionEstimada, evento.origenRespuesta)
         "error" -> EventoVoz.Error(evento.mensaje ?: "Error en el chat de voz")
@@ -99,7 +102,7 @@ suspend fun conectarChatVoz(
                         is Frame.Text -> {
                             val texto = frame.readText()
                             if (!texto.contains("\"transcripcion_")) println("CHAT VOZ EVENTO: $texto")
-                            parsearEvento(texto)?.let { onEvento(it) }
+                            parsearEventoVoz(texto)?.let { onEvento(it) }
                         }
                         else -> Unit
                     }
