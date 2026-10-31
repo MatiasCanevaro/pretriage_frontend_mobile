@@ -3,11 +3,9 @@ package com.proyecto_final.triage.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,7 +13,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -215,40 +219,76 @@ private fun OrdenHospitalSelector(
     ordenSeleccionado: OrdenHospital,
     onOrdenChange: (OrdenHospital) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "Ordenar por",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Un chip por cada opción del enum. Scrollea horizontal
-        // por si no entran todos en pantallas angostas.
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OrdenHospital.entries.forEach { orden ->
-                val seleccionado = ordenSeleccionado == orden
-                FilterChip(
-                    selected = seleccionado,
-                    onClick = { onOrdenChange(orden) },
-                    label = { Text(orden.label) },
-                    leadingIcon = if (seleccionado) {
-                        {
-                            Icon(
-                                imageVector = Icons.Filled.Done,
-                                contentDescription = null,
-                                modifier = Modifier.size(FilterChipDefaults.IconSize)
-                            )
-                        }
-                    } else null
-                )
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val opciones = OrdenHospital.entries
+        val columnas = (maxWidth / (160.dp * LocalDensity.current.fontScale))
+            .toInt().coerceIn(1, opciones.size)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "Ordenar por",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Layout(
+                modifier = Modifier.fillMaxWidth(),
+                content = {
+                    opciones.forEach { orden ->
+                        OrdenHospitalChip(
+                            selected = ordenSeleccionado == orden,
+                            onClick = { onOrdenChange(orden) },
+                            label = orden.label
+                        )
+                    }
+                }
+            ) { measurables, constraints ->
+                val spacing = 8.dp.roundToPx()
+                val layoutWidth = constraints.maxWidth
+                val itemWidth = (layoutWidth - spacing * (columnas - 1)) / columnas
+                val sharedHeight = maxOf(48.dp.roundToPx(), measurables.maxOf { it.maxIntrinsicHeight(itemWidth) })
+                val chipConstraints = Constraints.fixed(itemWidth, sharedHeight)
+                val chips = measurables.map { it.measure(chipConstraints) }
+                val filas = (chips.size + columnas - 1) / columnas
+                val layoutHeight = constraints.constrainHeight(sharedHeight * filas + spacing * (filas - 1))
+                layout(layoutWidth, layoutHeight) {
+                    chips.forEachIndexed { index, chip ->
+                        chip.placeRelative(
+                            (index % columnas) * (itemWidth + spacing),
+                            (index / columnas) * (sharedHeight + spacing)
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun OrdenHospitalChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        label = {
+            Text(
+                text = label,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Filled.Done,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(FilterChipDefaults.IconSize)
+                    .alpha(if (selected) 1f else 0f)
+            )
+        }
+    )
 }
 
 @Composable

@@ -23,6 +23,7 @@ actual object ChatStorage {
     }
 
     actual fun clearChatId() {
+        chatConversationCache.limpiar()
         prefs.edit().remove(CHAT_ID_KEY).apply()
     }
 }

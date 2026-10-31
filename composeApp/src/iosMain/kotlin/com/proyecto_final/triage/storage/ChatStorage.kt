@@ -16,6 +16,7 @@ actual object ChatStorage {
     }
 
     actual fun clearChatId() {
+        chatConversationCache.limpiar()
         defaults.removeObjectForKey(CHAT_ID_KEY)
     }
 }

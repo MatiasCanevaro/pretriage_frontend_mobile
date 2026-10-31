@@ -1,6 +1,11 @@
 package com.proyecto_final.triage
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import cafe.adriel.voyager.core.annotation.ExperimentalVoyagerApi
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -22,20 +27,24 @@ fun App() {
     val sessionExpired by AuthState.sessionExpired.collectAsState()
 
     AppTheme {
-        CompositionLocalProvider(LocalStudiesViewModel provides studiesViewModel) {
-            ProvideNavigatorLifecycleKMPSupport {
-                Navigator(SplashScreen())
-            }
-        }
-    }
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+                CompositionLocalProvider(LocalStudiesViewModel provides studiesViewModel) {
+                    ProvideNavigatorLifecycleKMPSupport {
+                        Navigator(SplashScreen())
+                    }
+                }
 
-    if (sessionExpired) {
-        LaunchedEffect(Unit) {
-            AuthState.reset()
-            TokenStorageProvider.instance.clearTokens()
-        }
-        ProvideNavigatorLifecycleKMPSupport {
-            Navigator(SignInScreen())
+                if (sessionExpired) {
+                    LaunchedEffect(Unit) {
+                        AuthState.reset()
+                        TokenStorageProvider.instance.clearTokens()
+                    }
+                    ProvideNavigatorLifecycleKMPSupport {
+                        Navigator(SignInScreen())
+                    }
+                }
+            }
         }
     }
 }

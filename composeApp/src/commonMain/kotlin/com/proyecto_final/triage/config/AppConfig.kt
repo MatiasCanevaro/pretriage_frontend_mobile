@@ -8,7 +8,7 @@ object AppConfig {
     val environment: Environment = Environment.PROD
 
     val baseUrl: String
-        get() = "http://192.168.0.7:8080"
+        get() = BackendConfig.BASE_URL
 
 }
 

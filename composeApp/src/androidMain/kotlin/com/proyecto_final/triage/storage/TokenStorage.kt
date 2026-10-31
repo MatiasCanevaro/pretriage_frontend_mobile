@@ -54,6 +54,7 @@ class AndroidTokenStorage : TokenStorage {
     }
 
     override fun clearTokens() {
+        chatConversationCache.limpiar()
         memoryToken = null
         memoryRefreshToken = null
 

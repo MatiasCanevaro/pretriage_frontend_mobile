@@ -13,8 +13,10 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,14 +27,23 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import com.proyecto_final.triage.audio.rememberSolicitudPermisoMicrofono
+import com.proyecto_final.triage.audio.ModoEntradaVoz
 import com.proyecto_final.triage.components.CommonHeader
 import com.proyecto_final.triage.components.ErrorBanner
 import com.proyecto_final.triage.components.InfoBanner
+import com.proyecto_final.triage.network.AUTOR_BOT
+import com.proyecto_final.triage.network.AUTOR_PACIENTE
 import com.proyecto_final.triage.network.AtencionEstimada
 import com.proyecto_final.triage.network.ChatMensaje
 import com.proyecto_final.triage.network.esAutorBot
 import com.proyecto_final.triage.theme.AppTheme
 import com.proyecto_final.triage.viewmodels.ChatViewModel
+import com.proyecto_final.triage.viewmodels.turnoTextoBloqueaChat
+import com.proyecto_final.triage.viewmodels.ChatClassificationPresentation
+import com.proyecto_final.triage.viewmodels.presentacionClasificacionChat
+import com.proyecto_final.triage.viewmodels.textoPanelVoz
+import com.proyecto_final.triage.viewmodels.EstadoVoz
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -41,6 +52,10 @@ class ChatScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.current
         val viewModel = remember { ChatViewModel() }
+        // El ViewModel se crea con remember (no hay onCleared): se libera el audio al salir.
+        DisposableEffect(viewModel) {
+            onDispose { viewModel.liberarRecursos() }
+        }
         ChatContent(
             onBack = { navigator?.pop() },
             viewModel = viewModel
@@ -69,9 +84,18 @@ fun ChatContent(
     var showConfirmDialog by remember { mutableStateOf(false) }
     var mostrarExito by remember { mutableStateOf(false) }
     val listaState = rememberLazyListState()
+    val vozActiva = state.estadoVoz != EstadoVoz.INACTIVA
+    val presentacionClasificacion = presentacionClasificacionChat(
+        finalizado = state.finalizado,
+        estadoClasificacion = state.estadoClasificacion
+    )
+
+    val solicitarMicrofono = rememberSolicitudPermisoMicrofono { concedido ->
+        if (concedido) viewModel.iniciarVoz() else viewModel.permisoMicrofonoDenegado()
+    }
 
     // El InfoBanner se muestra hasta que el usuario envía su primer mensaje.
-    val mostrarInfo = state.mensajes.none { !esAutorBot(it.autor) }
+    val mostrarInfo = !state.iniciando && state.mensajes.none { !esAutorBot(it.autor) }
     // Offset de items fijos antes de los mensajes: header + (banner cuando está visible)
     val offsetMensajes = if (mostrarInfo) 2 else 1
 
@@ -97,6 +121,16 @@ fun ChatContent(
                 scrollInicialHecho = true
                 scrollAlFinal(listaState, offsetMensajes + state.mensajes.size - 1)
             }
+        }
+    }
+
+    // Transcripción de voz en vivo: se sigue el final de la lista mientras el usuario esté abajo.
+    val hayTranscripcion = state.transcripcionPaciente.isNotBlank() || state.transcripcionBot.isNotBlank()
+    LaunchedEffect(hayTranscripcion, state.transcripcionPaciente.length / 40, state.transcripcionBot.length / 40) {
+        val total = listaState.layoutInfo.totalItemsCount
+        val ultimoVisible = listaState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+        if (hayTranscripcion && total > 0 && ultimoVisible >= total - 3) {
+            listaState.animateScrollToItem(total - 1)
         }
     }
 
@@ -143,7 +177,10 @@ fun ChatContent(
             if (mostrarInfo) {
                 item {
                     InfoBanner(
-                        text = "Describí tus síntomas por escrito y el asistente estimará una prioridad de atención."
+                        text = if (state.vozDisponible)
+                            "Describí tus síntomas por escrito o tocá el micrófono para hablar con el asistente. Él estimará una prioridad de atención."
+                        else
+                            "Describí tus síntomas por escrito y el asistente estimará una prioridad de atención."
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
@@ -180,12 +217,38 @@ fun ChatContent(
                 }
             }
 
-            if (state.enviando) {
+            if (state.enviando || state.respuestaPendiente || state.siguiendoTurnoTexto) {
                 item {
                     BurbujaDeMensaje(
                         ChatMensaje(
-                            contenido = "Escribiendo...",
+                            contenido = if (state.turnoTextoDesconocido) "Consultando estado..." else "Escribiendo...",
                             autor = "BOT"
+                        ),
+                        escribiendo = true
+                    )
+                }
+            }
+
+            // Transcripciones de voz en curso
+            if (state.transcripcionPaciente.isNotBlank()) {
+                item {
+                    BurbujaDeMensaje(ChatMensaje(state.transcripcionPaciente.trim(), AUTOR_PACIENTE))
+                }
+            }
+            if (state.transcripcionBot.isNotBlank()) {
+                item {
+                    BurbujaDeMensaje(ChatMensaje(state.transcripcionBot.trim(), AUTOR_BOT))
+                }
+            }
+
+            if (state.estadoVoz == EstadoVoz.PROCESANDO &&
+                presentacionClasificacion == ChatClassificationPresentation.NO_SOLICITADA
+            ) {
+                item {
+                    BurbujaDeMensaje(
+                        ChatMensaje(
+                            contenido = "Registrando tus respuestas...",
+                            autor = AUTOR_BOT
                         ),
                         escribiendo = true
                     )
@@ -198,28 +261,88 @@ fun ChatContent(
             CardAtencionEstimada(atencion)
         }
 
-        // Chat finalizado
-        if (state.finalizado) {
-            InfoBanner(
-                text = "Triage finalizado. Tu consulta fue derivada al equipo médico.",
-                icon = Icons.Filled.Check
-            )
+        // Cerrar la entrevista no significa que el triage haya terminado correctamente.
+        when (presentacionClasificacion) {
+            ChatClassificationPresentation.COMPLETADA -> {
+                InfoBanner(
+                    text = "Entrevista completada. Podés consultar el estado de tu atención.",
+                    icon = Icons.Filled.Check
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            ChatClassificationPresentation.PROCESANDO -> {
+                InfoBanner(text = "Estamos procesando tus respuestas...")
+                if (state.error != null) {
+                    Text(state.error ?: "Error", color = MaterialTheme.colorScheme.error)
+                }
+                if (state.actualizacionCierreDisponible) {
+                    Button(onClick = viewModel::actualizarConversacion, enabled = !state.verificandoRespuesta) {
+                        Text(if (state.verificandoRespuesta) "Consultando..." else "Consultar estado")
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            ChatClassificationPresentation.FALLIDA -> {
+                InfoBanner(text = "No pudimos procesar tus respuestas. Tus respuestas quedaron guardadas.")
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            ChatClassificationPresentation.CERRADA_SIN_RESULTADO -> {
+                InfoBanner(text = if (state.siguiendoCierre) "Estamos confirmando el resultado..." else "Todavía no pudimos confirmar el resultado.")
+                if (state.error != null) {
+                    Text(state.error ?: "Error", color = MaterialTheme.colorScheme.error)
+                }
+                if (state.actualizacionCierreDisponible) {
+                    Button(onClick = viewModel::actualizarConversacion, enabled = !state.verificandoRespuesta) {
+                        Text(if (state.verificandoRespuesta) "Consultando..." else "Consultar estado")
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            ChatClassificationPresentation.NO_SOLICITADA -> {
+                if (state.finalizado) {
+                    InfoBanner(text = "La entrevista finalizó. Tus respuestas quedaron registradas.", icon = Icons.Filled.Check)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+        }
+
+        if (state.turnoTextoDesconocido && state.chatId != null && !state.siguiendoTurnoTexto) {
+            InfoBanner(text = if (state.solicitudTextoPendienteId != null) {
+                "No pudimos confirmar el estado del mensaje. Consultá el estado; no lo reenvíes."
+            } else {
+                "No pudimos confirmar el estado del chat. Consultá el estado antes de continuar."
+            })
+            Button(onClick = viewModel::actualizarEstadoTurnoTexto, enabled = !state.verificandoRespuesta) {
+                Text(if (state.verificandoRespuesta) "Consultando..." else "Consultar estado")
+            }
             Spacer(modifier = Modifier.height(12.dp))
         }
-
-        // Error al enviar (texto conservado en el campo)
-        if (state.error != null && state.chatId != null) {
-            Text(
-                text = state.error ?: "Error",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            )
+        if (state.estadoTurnoTexto.equals("NO_DISPONIBLE", ignoreCase = true)) {
+            InfoBanner(text = "El asistente no está disponible. No se pudo continuar el chat.")
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        // Error al enviar (texto conservado en el campo). Once closed, classification status is authoritative.
+        if (state.error != null && state.chatId != null && !state.finalizado) {
+            if (state.errorVoz && state.estadoVoz == EstadoVoz.INACTIVA) {
+                ErrorBanner(
+                    message = state.error ?: "Se interrumpió la conexión de voz.",
+                    buttonText = "Retomar voz",
+                    icon = Icons.Filled.Mic,
+                    onButtonClick = viewModel::iniciarVoz
+                )
+            } else {
+                Text(
+                    text = state.error ?: "Error",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                )
+            }
         }
 
-        if (mostrarExito) {
+        if (mostrarExito && !state.finalizado && state.error == null) {
             Text(
                 text = "Mensaje enviado",
                 color = Color(0xFF2E7D32),
@@ -229,6 +352,20 @@ fun ChatContent(
                     .padding(bottom = 4.dp)
             )
         }
+
+        // Conversación por voz en curso: reemplaza la entrada de texto
+        if (vozActiva && state.estadoVoz != EstadoVoz.PROCESANDO) {
+            PanelVoz(
+                estado = state.estadoVoz,
+                modoEntrada = state.modoEntradaVoz,
+                procesandoRespuesta = state.procesandoRespuestaVoz,
+                asistenteHablando = state.asistenteHablandoVoz,
+                onDetener = viewModel::detenerVoz
+            )
+            return@Column
+        }
+
+        if (state.finalizado) return@Column
 
         // Entrada de mensaje
         Row(
@@ -240,7 +377,7 @@ fun ChatContent(
             OutlinedTextField(
                 value = state.borrador,
                 onValueChange = viewModel::actualizarBorrador,
-                enabled = state.chatId != null && !state.finalizado && !state.enviando,
+                enabled = state.chatId != null && !state.iniciando && !state.finalizado && !state.enviando && !state.turnoTextoBloqueaChat && !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true),
                 placeholder = {
                     Text("Escribí tus síntomas...")
                 },
@@ -252,10 +389,42 @@ fun ChatContent(
 
             Spacer(modifier = Modifier.width(8.dp))
 
+            val puedeHablar = state.vozDisponible &&
+                state.chatId != null &&
+                !state.iniciando &&
+                !state.finalizado &&
+                !state.enviando &&
+                !state.turnoTextoBloqueaChat &&
+                !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)
+
+            // Micrófono: solo si todavía no escribió nada, para no competir con el botón de enviar.
+            if (state.vozDisponible && state.borrador.isBlank()) {
+                IconButton(
+                    onClick = { if (puedeHablar) solicitarMicrofono() },
+                    enabled = puedeHablar,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = if (puedeHablar) Color(0xFF5BB8D4) else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = "Hablar con el asistente",
+                        tint = if (puedeHablar) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                return@Row
+            }
+
             val puedeEnviar = state.borrador.isNotBlank() &&
                 state.chatId != null &&
+                !state.iniciando &&
                 !state.finalizado &&
-                !state.enviando
+                !state.enviando &&
+                !state.turnoTextoBloqueaChat &&
+                !state.verificandoRespuesta && !state.estadoClasificacion.equals("PENDIENTE", ignoreCase = true)
 
             if (state.enviando) {
                 CircularProgressIndicator(
@@ -387,6 +556,67 @@ private fun BurbujaDeMensaje(
 }
 
 @Composable
+private fun PanelVoz(
+    estado: EstadoVoz,
+    modoEntrada: ModoEntradaVoz,
+    procesandoRespuesta: Boolean,
+    asistenteHablando: Boolean,
+    onDetener: () -> Unit
+) {
+    val texto = textoPanelVoz(estado, modoEntrada, procesandoRespuesta, asistenteHablando)
+    val puedeDetener = estado == EstadoVoz.CONECTANDO || estado == EstadoVoz.ESCUCHANDO
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFE3F2FD),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (estado == EstadoVoz.ESCUCHANDO) {
+                    Icon(
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = null,
+                        tint = Color(0xFF5BB8D4),
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = texto,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.weight(1f)
+                )
+                if (puedeDetener) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = onDetener,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(color = MaterialTheme.colorScheme.error, shape = CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Stop,
+                            contentDescription = "Terminar conversación por voz",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
+
+        }
+    }
+}
+
+@Composable
 private fun CardAtencionEstimada(atencion: AtencionEstimada) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -406,7 +636,7 @@ private fun CardAtencionEstimada(atencion: AtencionEstimada) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Prioridad triage asignada",
+                    text = "Tu atención",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground
                 )
